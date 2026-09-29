@@ -1,0 +1,50 @@
+# Java and Maven build output
+target/
+*.class
+*.jar
+*.war
+*.ear
+# Preserve the Maven Wrapper binary if introduced.
+!**/.mvn/wrapper/maven-wrapper.jar
+
+# React, TypeScript, Vite, and test output
+node_modules/
+dist/
+build/
+coverage/
+.vite/
+*.tsbuildinfo
+*.local
+
+# Environment files (examples must contain fake values only)
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Logs and JVM crash reports
+logs/
+*.log
+hs_err_pid*
+replay_pid*
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# VS Code local settings; allow shared project configuration
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+*.code-workspace
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
