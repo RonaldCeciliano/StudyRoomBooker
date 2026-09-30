@@ -43,7 +43,15 @@ These are the three questions that must be resolved before implementation begins
 
 ## 1. LibCal Booking Window
 
-**Decision:** A study-room booking becomes available **14 days in advance**.
+**Decision:** LibCal uses a **rolling 14-day booking window**.
+
+### Ronald's Manual Investigation — September 30, 2026
+
+- On September 30, 2026, October 14, 2026 was available for booking, exactly 14 days ahead.
+- Ronald could see actual available rooms and time slots for October 14.
+- This observation supports a rolling 14-day booking window.
+- No reservation was submitted.
+- The exact availability-release time remains unverified; Ronald did not verify when October 15 would become available.
 
 StudyRoomBooker will use the 14-day advance-booking window when determining when an assigned member should be reminded to make the reservation.
 
@@ -98,7 +106,7 @@ Interpretation:
 - Selection persistence indicates that LibCal retained booking state through authentication, but this investigation did not determine how it was stored.
 - This observation does not rule out other officially supported deep-link mechanisms.
 
-The 14-day booking boundary and exact availability-release timing remain unverified by this test.
+This URL test did not verify the 14-day booking boundary or exact availability-release timing. The separate September 30 observation documented under "1. LibCal Booking Window" supports the rolling 14-day window; the exact availability-release time remains unverified.
 
 ### Investigation Method Used
 
@@ -1123,6 +1131,12 @@ Shared Dashboard Updates
 
 # Deployment Plan
 
+### Ronald's Completed Deployment Investigation
+
+Oracle Cloud is the planned deployment environment, using an ARM64 VM. The planned 1 OCPU / 6 GB RAM configuration fits the documented deployment target for the Docker Compose stack with Caddy, Spring Boot, and PostgreSQL shown below. This configuration is a sizing plan, not a claim about current Oracle Always Free limits.
+
+Oracle Cloud capacity availability is a deployment risk; VM capacity is not guaranteed. Deployment should remain portable: Docker Compose allows the application stack to move to another VM or provider if necessary.
+
 Target production infrastructure:
 
 ```text
@@ -1160,7 +1174,7 @@ Backups should be:
 - Rotated
 - Stored separately from the live database when possible
 
-Oracle Object Storage may be evaluated for backup storage.
+Oracle Object Storage is planned for backup storage.
 
 The exact free-tier limits and retention strategy must be verified before production deployment.
 
@@ -1196,7 +1210,7 @@ At minimum, PostgreSQL should be available through a development Compose configu
 
 Production will also use containers.
 
-Because the planned cloud VM may use ARM architecture, container image compatibility must be checked before deployment.
+The planned Oracle Cloud VM uses ARM64. ARM64 compatibility must be considered when selecting Docker images and dependencies and checked before deployment.
 
 ---
 
@@ -1352,11 +1366,11 @@ The exact scheduling behavior can be refined after observing LibCal.
 
 ## Ronald
 
-- [ ] Verify/observe the LibCal 14-day booking behavior.
+- [x] Verify/observe the LibCal 14-day booking behavior: September 30, 2026 → October 14, 2026 availability observed; exact availability-release time remains unverified.
 - [x] Capture the normal LibCal reservation URL.
 - [x] Capture the URL after navigating to/selecting a specific booking date/time/room.
 - [x] Compare the two URLs with ChatGPT: no reusable booking parameters were found in the observed URLs.
-- [ ] Begin investigating Oracle Cloud deployment.
+- [x] Investigate Oracle Cloud deployment: ARM64 VM, Docker Compose stack, backup storage, sizing, compatibility, capacity risk, and portability documented under "Deployment Plan," "Database Backups," and "Docker."
 
 ## Genaro
 
@@ -1818,14 +1832,15 @@ Both contributors should maintain a record of the features they personally desig
 
 # Current Next Steps
 
+Milestone -1 research is complete and Milestone 0 can begin. The setup and review tasks below remain; the exact LibCal availability-release time remains unverified.
+
 Before application code is generated:
 
 ### Ronald
 
-1. Verify/observe the LibCal 14-day booking boundary and availability-release timing.
-2. Investigate the planned deployment environment.
+No remaining Milestone -1 research tasks.
 
-Completed: normal and selected-booking URLs captured and compared. Findings are documented under "2. LibCal Link Investigation."
+Completed: Oracle Cloud deployment investigation, documented under "Deployment Plan," "Database Backups," and "Docker." Rolling 14-day booking-window behavior was observed on September 30, 2026 for October 14, 2026; exact availability-release time remains unverified. Normal and selected-booking URLs were also captured and compared. LibCal findings are documented under "1. LibCal Booking Window" and "2. LibCal Link Investigation."
 
 ### Genaro
 
@@ -1838,8 +1853,7 @@ Completed: normal and selected-booking URLs captured and compared. Findings are 
 
 1. Review this architecture document.
 2. Review ADRs 0001-0010.
-3. Resolve remaining Milestone -1 questions.
-4. Only then begin Milestone 0 implementation.
+3. Begin Milestone 0 implementation after the setup and reviews above.
 
 ---
 
