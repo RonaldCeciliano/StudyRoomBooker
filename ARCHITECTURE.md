@@ -66,15 +66,49 @@ Assigned member receives booking reminder
 
 ## 2. LibCal Link Investigation
 
-**Decision:** We need to investigate how LibCal represents reservation information in its URLs before deciding how deep linking will work.
+**Decision:** The observed booking flow did not expose reusable room/date/time parameters in the visible URL. Phase 1 will use https://uark.libcal.com/reserve and display the assigned room, backup rooms, reservation date, start time, and end time separately. Do not assume a booking-specific deep-link format.
 
-We will give ChatGPT two examples:
+### Ronald's Manual Investigation — Findings
 
-### Link A — Normal LibCal Link
+Test selection:
 
-Open LibCal normally without selecting a reservation.
+- Room: 307
+- Reservation date: October 1, 2026
+- Time: 8:00 PM–9:00 PM
 
-Copy the URL.
+Observed URLs:
+
+- Normal reservation page: https://uark.libcal.com/reserve
+- After selecting the reservation and proceeding to authentication:
+  https://uark.libcal.com/spaces/auth?returnUrl=%2Freserve
+- On the final booking confirmation page after authentication:
+  https://uark.libcal.com/spaces/auth?returnUrl=%2Freserve
+
+Observations:
+
+- The selected room, date, and times did not appear in the visible URL.
+- The selection persisted through authentication.
+- LibCal temporarily held the selected time during the booking process.
+- The final booking was not submitted.
+
+Interpretation:
+
+- The `returnUrl` parameter decodes to `/reserve`; it contains no room/date/time information.
+- These observed URLs do not provide a reusable booking-specific deep link.
+- Selection persistence indicates that LibCal retained booking state through authentication, but this investigation did not determine how it was stored.
+- This observation does not rule out other officially supported deep-link mechanisms.
+
+The 14-day booking boundary and exact availability-release timing remain unverified by this test.
+
+### Investigation Method Used
+
+Ronald provided ChatGPT with two observed URLs:
+
+#### Link A — Normal LibCal Link
+
+Ronald opened LibCal normally without selecting a reservation.
+
+He copied the URL.
 
 Example purpose:
 
@@ -86,16 +120,16 @@ No specific booking selected
 Copy URL
 ```
 
-### Link B — Booking-Specific LibCal Link
+#### Link B — URL After Selecting a Booking
 
-Navigate through LibCal to a particular:
+Ronald navigated through LibCal and selected a particular:
 
 - Date
 - Room
 - Start time
 - End time
 
-Then copy the URL again.
+He then copied the URL after proceeding to authentication and checked it again on the final booking confirmation page.
 
 ```text
 Select booking information
@@ -110,9 +144,9 @@ End time
 Copy resulting URL
 ```
 
-We will compare **Link A** and **Link B**.
+ChatGPT compared **Link A** and **Link B**.
 
-The goal is to determine whether LibCal exposes any useful booking information in the URL, such as:
+The goal was to determine whether the observed URLs exposed any useful booking information, such as:
 
 ```text
 date
@@ -123,9 +157,11 @@ location
 booking parameters
 ```
 
-If the booking-specific URL contains reusable parameters, StudyRoomBooker may be able to construct a link that sends the assigned member closer to the correct reservation.
+### Possible Future Deep-Link Enhancement
 
-For example:
+If a supported booking-specific URL format is verified in the future, StudyRoomBooker may be able to construct a link that sends the assigned member closer to the correct reservation.
+
+The following is a conditional example of that possible future enhancement:
 
 ```text
 StudyRoomBooker
@@ -144,7 +180,7 @@ User opens LibCal closer to
 the correct reservation
 ```
 
-If LibCal does **not** preserve the booking information in the URL, Phase 1 will simply provide the normal LibCal reservation link along with:
+For Phase 1, StudyRoomBooker will provide https://uark.libcal.com/reserve along with:
 
 - Assigned room
 - Backup rooms
@@ -154,7 +190,7 @@ If LibCal does **not** preserve the booking information in the URL, Phase 1 will
 
 The user can then enter/select those details manually.
 
-**No deep-link URL structure should be assumed until we test the actual LibCal URLs.**
+**Do not construct booking-specific URLs unless a supported format is independently verified.**
 
 ---
 
@@ -840,21 +876,9 @@ Time: 6:00 PM - 10:00 PM
 [Book Room]
 ```
 
-The destination of **Book Room** will be determined by the LibCal URL investigation.
+For Phase 1, **Book Room** links to https://uark.libcal.com/reserve.
 
-If we discover a reusable booking-specific URL:
-
-```text
-Book Room -> booking-specific LibCal link
-```
-
-Otherwise:
-
-```text
-Book Room -> normal LibCal reservation page
-```
-
-The booking details remain visible in the reminder either way.
+The assigned room, backup rooms, reservation date, start time, and end time remain visible in the reminder. Booking-specific links are a possible future enhancement only if a supported format is verified.
 
 ---
 
@@ -1328,11 +1352,11 @@ The exact scheduling behavior can be refined after observing LibCal.
 
 ## Ronald
 
-- Verify/observe the LibCal 14-day booking behavior.
-- Capture the normal LibCal reservation URL.
-- Capture the URL after navigating to/selecting a specific booking date/time/room.
-- Compare the two URLs with ChatGPT to determine whether useful deep-link parameters exist.
-- Begin investigating Oracle Cloud deployment.
+- [ ] Verify/observe the LibCal 14-day booking behavior.
+- [x] Capture the normal LibCal reservation URL.
+- [x] Capture the URL after navigating to/selecting a specific booking date/time/room.
+- [x] Compare the two URLs with ChatGPT: no reusable booking parameters were found in the observed URLs.
+- [ ] Begin investigating Oracle Cloud deployment.
 
 ## Genaro
 
@@ -1555,7 +1579,7 @@ The exact implementation depends on:
 
 1. Library approval.
 2. LibCal page behavior.
-3. What the Phase 1 URL investigation discovers.
+3. The documented Phase 1 URL findings and any further verified LibCal capabilities.
 
 ---
 
@@ -1733,7 +1757,7 @@ Therefore:
 - BOOKED is based on user confirmation.
 - Cancelling a shift in StudyRoomBooker does not automatically cancel LibCal.
 - Room availability may change before the assigned member completes the booking.
-- Deep-link capabilities are unknown until the URL investigation is completed.
+- The observed LibCal booking flow does not expose reusable room/date/time parameters in the visible URL; other officially supported deep-link mechanisms have not been verified.
 - Phase 2 depends on library approval and LibCal behavior.
 
 These are accepted limitations for the first version.
@@ -1798,11 +1822,10 @@ Before application code is generated:
 
 ### Ronald
 
-1. Investigate the LibCal 14-day booking behavior.
-2. Copy the normal LibCal URL.
-3. Navigate to/select a specific reservation date/time/room and copy that URL.
-4. Give both URLs to ChatGPT for comparison.
-5. Investigate the planned deployment environment.
+1. Verify/observe the LibCal 14-day booking boundary and availability-release timing.
+2. Investigate the planned deployment environment.
+
+Completed: normal and selected-booking URLs captured and compared. Findings are documented under "2. LibCal Link Investigation."
 
 ### Genaro
 
