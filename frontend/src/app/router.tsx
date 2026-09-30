@@ -1,10 +1,10 @@
-import { createBrowserRouter } from 'react-router'
+import { createBrowserRouter, type RouteObject } from 'react-router'
 import { DashboardPage } from '../features/dashboard/DashboardPage'
 import { ErrorPage } from './ErrorPage'
 import { Layout } from './Layout'
 import { NotFoundPage } from './NotFoundPage'
 
-export const router = createBrowserRouter([
+export const routes: RouteObject[] = [
   {
     element: <Layout />,
     children: [
@@ -18,4 +18,6 @@ export const router = createBrowserRouter([
       },
     ],
   },
-])
+]
+
+export const router = createBrowserRouter(routes)

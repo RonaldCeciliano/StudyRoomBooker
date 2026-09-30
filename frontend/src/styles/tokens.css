@@ -37,6 +37,18 @@
   --on-accent: #ffffff;
   --section-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 16px rgb(0 0 0 / 0.04);
 
+  /* Shift status: always paired with a text label, never color alone. */
+  --status-booked-bg: #e3f5e8;
+  --status-booked-fg: #1b6b32;
+  --status-assigned-bg: #e5f0ff;
+  --status-assigned-fg: #0a4fa3;
+  --status-unassigned-bg: #fff1dc;
+  --status-unassigned-fg: #8a4b00;
+  --status-missed-bg: #ffe5e3;
+  --status-missed-fg: #b3261e;
+  --status-cancelled-bg: #ececf0;
+  --status-cancelled-fg: #55555c;
+
   /* Glass layer (navigation and controls only) */
   --glass-fill: rgb(255 255 255 / 0.55);
   --glass-fill-solid: #f9f9fb;
@@ -60,6 +72,17 @@
     --separator: rgb(84 84 88 / 0.6);
     --accent: #4da3ff;
     --section-shadow: none;
+
+    --status-booked-bg: #1d3a26;
+    --status-booked-fg: #6ee08e;
+    --status-assigned-bg: #16304f;
+    --status-assigned-fg: #8cc4ff;
+    --status-unassigned-bg: #3d2f15;
+    --status-unassigned-fg: #ffc266;
+    --status-missed-bg: #45211f;
+    --status-missed-fg: #ff9d96;
+    --status-cancelled-bg: #2f2f33;
+    --status-cancelled-fg: #c7c7cc;
 
     --glass-fill: rgb(40 40 44 / 0.5);
     --glass-fill-solid: #242428;
