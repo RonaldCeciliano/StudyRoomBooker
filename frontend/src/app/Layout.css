@@ -1,0 +1,79 @@
+/* Floating glass navigation bar, inset from the window edges. */
+.app-bar {
+  position: fixed;
+  top: var(--space-3);
+  left: 50%;
+  z-index: 10;
+  translate: -50% 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  width: min(960px - 2 * var(--space-4), 100% - 2 * var(--space-3));
+  /* Pills are capsules inside a capsule, so equal padding keeps them concentric. */
+  padding: 6px;
+  padding-left: var(--space-5);
+  border-radius: var(--radius-capsule);
+}
+
+.app-bar-brand {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--label);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.app-bar-nav {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.nav-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-capsule);
+  color: var(--label);
+  font-size: 15px;
+  font-weight: 500;
+  text-decoration: none;
+  transition:
+    background-color var(--duration) ease,
+    transform var(--duration) var(--ease-spring);
+}
+
+.nav-pill:hover {
+  background: var(--glass-hover);
+}
+
+.nav-pill:active {
+  transform: scale(0.95);
+}
+
+.nav-pill.active {
+  background: var(--glass-selected);
+  font-weight: 600;
+}
+
+/* Scroll edge effect: content blurs and fades as it passes under the bar. */
+.scroll-edge {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 9;
+  height: 88px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, var(--bg), transparent);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  -webkit-mask-image: linear-gradient(to bottom, #000 40%, transparent);
+  mask-image: linear-gradient(to bottom, #000 40%, transparent);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .scroll-edge {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
