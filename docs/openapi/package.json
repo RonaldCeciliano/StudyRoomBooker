@@ -1,0 +1,14 @@
+{
+  "name": "studyroombooker-api-contract",
+  "private": true,
+  "scripts": {
+    "generate": "openapi-typescript studyroombooker.yaml -o ../../frontend/src/api/generated/schema.ts",
+    "check": "openapi-typescript studyroombooker.yaml -o ../../frontend/src/api/generated/schema.ts --check",
+    "validate": "redocly lint studyroombooker.yaml"
+  },
+  "devDependencies": {
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3",
+    "@redocly/cli": "2.57.0"
+  }
+}

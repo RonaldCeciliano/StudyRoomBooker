@@ -1,0 +1,103 @@
+openapi: 3.0.3
+info:
+  title: StudyRoomBooker API
+  version: 0.1.0
+  description: Initial authoritative contract. The shifts backend endpoint is not implemented yet.
+servers:
+  - url: /
+    description: Same-origin API
+paths:
+  /api/shifts:
+    get:
+      operationId: listShifts
+      summary: List shifts
+      description: Returns a bare array. No query parameters, filtering, pagination, or envelope are defined.
+      responses:
+        '200':
+          description: Shifts returned successfully. Empty results are an empty array.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Shift'
+              examples:
+                shifts:
+                  value:
+                    - id: 1
+                      startsAt: '2026-10-12T23:00:00Z'
+                      endsAt: '2026-10-13T03:00:00Z'
+                      status: BOOKED
+                      plannedRoomCode: 441D
+                      memberName: Ronald
+                    - id: 2
+                      startsAt: '2026-10-13T03:00:00Z'
+                      endsAt: '2026-10-13T05:00:00Z'
+                      status: ASSIGNED
+                      plannedRoomCode: 441D
+                      memberName: Genaro
+                    - id: 3
+                      startsAt: '2026-10-14T19:00:00Z'
+                      endsAt: '2026-10-14T23:00:00Z'
+                      status: UNASSIGNED
+                      plannedRoomCode: 441E
+                      memberName: null
+                empty:
+                  value: []
+        '500':
+          description: Unexpected server error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                title: Internal Server Error
+                status: 500
+                detail: Database unavailable
+        default:
+          description: Other unsuccessful responses use ProblemDetail. Authentication behavior is outside this contract's initial scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+components:
+  schemas:
+    Shift:
+      type: object
+      required: [id, startsAt, endsAt, status, plannedRoomCode, memberName]
+      properties:
+        id:
+          type: integer
+        startsAt:
+          type: string
+          format: date-time
+          pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$'
+          description: UTC ISO-8601 instant ending in Z. Fractional seconds are permitted.
+        endsAt:
+          type: string
+          format: date-time
+          pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$'
+          description: UTC ISO-8601 instant ending in Z. Fractional seconds are permitted.
+        status:
+          type: string
+          description: Group tracking state; BOOKED is user confirmation, not proof of a LibCal reservation.
+          enum: [UNASSIGNED, ASSIGNED, BOOKED, MISSED, CANCELLED]
+        plannedRoomCode:
+          type: string
+        memberName:
+          type: string
+          nullable: true
+    ProblemDetail:
+      type: object
+      description: Standard ProblemDetail fields. All fields remain optional to preserve the existing client contract; no custom extensions are defined.
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string

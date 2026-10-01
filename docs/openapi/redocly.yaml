@@ -1,0 +1,6 @@
+extends:
+  - minimal
+rules:
+  security-defined: off
+  no-invalid-media-type-examples: error
+  no-invalid-schema-examples: error
