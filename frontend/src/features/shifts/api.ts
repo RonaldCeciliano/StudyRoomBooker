@@ -1,27 +1,17 @@
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '../../api/client'
+import type { components, paths } from '../../api/generated/schema'
 
-// Provisional shape until the API contract is agreed on with the backend.
-// openapi-typescript will generate the real type from the OpenAPI spec.
-export type ShiftStatus = 'UNASSIGNED' | 'ASSIGNED' | 'BOOKED' | 'MISSED' | 'CANCELLED'
-
-export interface Shift {
-  id: number
-  /** ISO 8601 instant. */
-  startsAt: string
-  /** ISO 8601 instant. */
-  endsAt: string
-  status: ShiftStatus
-  plannedRoomCode: string
-  memberName: string | null
-}
+export type Shift = components['schemas']['Shift']
+export type ShiftStatus = Shift['status']
+export type ShiftsResponse = paths['/api/shifts']['get']['responses'][200]['content']['application/json']
 
 export const shiftKeys = {
   all: ['shifts'] as const,
 }
 
-export function fetchShifts(): Promise<Shift[]> {
-  return apiFetch<Shift[]>('/api/shifts')
+export function fetchShifts(): Promise<ShiftsResponse> {
+  return apiFetch<ShiftsResponse>('/api/shifts')
 }
 
 export function useShifts() {

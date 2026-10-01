@@ -2,14 +2,9 @@
 // same origin (Caddy in production, the Vite proxy in development), so the
 // session cookie is sent automatically and no CORS setup is needed.
 
-// Spring's ProblemDetail (RFC 9457) error body.
-export interface ProblemDetail {
-  type?: string
-  title?: string
-  status?: number
-  detail?: string
-  instance?: string
-}
+import type { components } from './generated/schema'
+
+export type ProblemDetail = components['schemas']['ProblemDetail']
 
 export class ApiError extends Error {
   readonly status: number

@@ -10,7 +10,10 @@
     "preview": "vite preview",
     "dev:mock": "vite --mode mock",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "api:generate": "npm --prefix ../docs/openapi run generate",
+    "api:check": "npm --prefix ../docs/openapi run check",
+    "api:validate": "npm --prefix ../docs/openapi run validate"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.0",

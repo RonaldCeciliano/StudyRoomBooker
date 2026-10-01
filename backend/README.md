@@ -56,3 +56,5 @@ The entry point and existing dependencies remain unchanged. The `config`, `contr
 configuration exists; the initial Flyway domain migration remains Together-owned.
 Hibernate schema generation is disabled in development/tests so it cannot substitute
 for that migration. Flyway remains enabled.
+
+API specification and generation workflow: [contract documentation](../docs/openapi/README.md).

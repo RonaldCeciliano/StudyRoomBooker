@@ -17,3 +17,5 @@ npm run lint        # run oxlint
 ## Mock API
 
 [MSW](https://mswjs.io/) fakes the backend in tests and in `npm run dev:mock`. Request handlers live in `src/mocks/handlers.ts` and fake data in `src/mocks/data.ts`. Tests fail if they call an endpoint that has no handler.
+
+API specification and generation workflow: [contract documentation](../docs/openapi/README.md).
