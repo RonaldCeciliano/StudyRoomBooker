@@ -1,0 +1,21 @@
+# Local development only. These defaults are fake credentials.
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: studyroombooker
+      POSTGRES_USER: ${DB_USERNAME:-studyroombooker_dev}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-fake-development-password}
+      TZ: America/Chicago
+    command: ["postgres", "-c", "timezone=America/Chicago"]
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-dev-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+volumes:
+  postgres-dev-data:
