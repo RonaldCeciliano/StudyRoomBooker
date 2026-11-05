@@ -10,9 +10,9 @@ A possible Phase 2 Chrome extension depends on University Libraries approval. It
 
 ## Current status
 
-**Implementation has not started.** The project is in Milestone -1: pre-implementation research and documentation review.
+**Milestone 0 foundation is in progress.** The React dashboard reads shifts from a PostgreSQL-backed Spring Boot API. Flyway creates the planning schema; the development profile adds fictional sample data.
 
-Before Milestone 0, the team will review the architecture and ADRs, observe LibCal booking-window behavior, investigate booking URLs, prepare email delivery, investigate deployment and DNS, and contact the library about Phase 2.
+The backend supports one-time study-block creation and even shift generation. The planning UI, shift assignment, authentication, notifications, and production deployment remain to be implemented. See the backend and frontend READMEs for local startup commands.
 
 The target operating cost is **$0**.
 

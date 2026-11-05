@@ -1,8 +1,13 @@
 # API contract
 
+`POST /api/study-blocks` creates a one-time study block and evenly split unassigned
+shifts atomically. Its request/response schemas are in the same specification;
+`StudyBlockApiTests` covers creation, validation, rollback, and repeated internal
+generation. Repeating POST creates a separate block. See the backend README for
+a request example and current planning limitations.
+
 `studyroombooker.yaml` is the authoritative contract for Issue #7 and ADR 0006.
-It documents the future `GET /api/shifts` endpoint; the backend endpoint is not
-implemented. There are no query parameters, pagination, filtering, or envelope.
+The backend implements `GET /api/shifts` against PostgreSQL. There are no query parameters, pagination, filtering, or envelope.
 Successful responses are `200 application/json` arrays, including `[]`.
 All six Shift properties are required; only `memberName` is nullable.
 Timestamps are UTC ISO-8601 instants ending in `Z` (optional fractional seconds),
@@ -53,11 +58,10 @@ Generator command reference: https://openapi-ts.dev/cli.
 
 Maven copies this specification into `static/openapi` during resource processing;
 there is no maintained second copy. Swagger UI at `/swagger-ui/index.html` loads
-`/openapi/studyroombooker.yaml`. Try-it-out is disabled while the domain endpoint
-is absent. `/v3/api-docs` is runtime-generated documentation of implemented routes,
+`/openapi/studyroombooker.yaml`. Try-it-out remains disabled. `/v3/api-docs` is runtime-generated documentation of implemented routes,
 not the authoritative source, and must not overwrite the committed contract.
 Rebuild/restart the backend after changing the specification.
 
-Future endpoint work must implement this contract and add request/response
-conformance tests. Type freshness does not prove backend response conformance.
+`ShiftsApiTests` verifies the database-backed HTTP response shape, UTC timestamps,
+nullable members, empty results, and safe ProblemDetail database failures. Type freshness does not prove backend response conformance.
 Contract changes require Ronald/Genaro review before regeneration.
