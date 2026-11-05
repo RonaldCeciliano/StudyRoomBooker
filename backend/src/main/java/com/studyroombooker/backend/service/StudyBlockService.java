@@ -10,6 +10,7 @@ import java.util.HashSet;
 import java.util.List;
 
 import com.studyroombooker.backend.repository.StudyBlockRepository;
+import com.studyroombooker.backend.repository.AssignmentRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,10 +21,15 @@ public class StudyBlockService {
     private static final ZoneId LIBRARY_ZONE = ZoneId.of("America/Chicago");
     private final StudyBlockRepository blocks;
     private final Clock clock;
+    private final AssignmentRepository assignmentRepository;
+    private final AssignmentService assignmentService;
 
-    public StudyBlockService(StudyBlockRepository blocks, Clock clock) {
+    public StudyBlockService(StudyBlockRepository blocks, Clock clock,
+                             AssignmentRepository assignmentRepository, AssignmentService assignmentService) {
         this.blocks = blocks;
         this.clock = clock;
+        this.assignmentRepository = assignmentRepository;
+        this.assignmentService = assignmentService;
     }
 
     public record CreateRequest(LocalDate date, LocalTime startTime, LocalTime endTime,
@@ -65,10 +71,13 @@ public class StudyBlockService {
     /** Repeated generation preserves existing assignments and booking state. */
     @Transactional
     public void generateShifts(long blockId) {
+        // Acquire the shared assignment lock before block/shift locks on every entry path.
+        assignmentRepository.lockAssignments();
         var block = blocks.findOneTime(blockId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "One-time study block not found"));
         blocks.insertShifts(block, ShiftSplitter.split(instant(block.date(), block.startTime()),
             instant(block.date(), block.endTime())));
+        assignmentService.assignBlock(blockId);
     }
 
     private static boolean aligned(LocalTime time) {

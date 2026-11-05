@@ -83,8 +83,8 @@ Shift updates maintain `updated_at` through a database trigger.
 
 Study-block creation validates library hours, active rooms, quarter-hour boundaries,
 and backup rooms differing from the preferred room. Its generated shifts cover the
-block exactly. Assignment still needs to validate member availability and active
-membership. Recurring schema support does not implement recurrence.
+block exactly. Assignment validates member availability, active membership, daily
+responsibility limits, overlaps, and weekly workload. Recurring schema support does not implement recurrence.
 `PlanningSchemaTests` checks the migration and key database invariants against
 isolated PostgreSQL, including timezone independence and cross-midnight overlap.
 
@@ -114,8 +114,8 @@ failures return a generic 500 ProblemDetail without exposing database details.
 
 ## Create a study block
 
-`POST /api/study-blocks` creates a one-time block and its unassigned shifts in one
-transaction. Use real IDs from your local database; IDs are not guaranteed to be
+`POST /api/study-blocks` creates a one-time block, generates shifts, and assigns
+eligible members in one transaction. Use real IDs from your local database; IDs are not guaranteed to be
 1 and 2. The date and times are local to America/Chicago. For example:
 
 ```json
@@ -130,7 +130,8 @@ transaction. Use real IDs from your local database; IDs are not guaranteed to be
 
 Choose a future date when trying this example. The response is `201` with the
 saved block (including ID and ordered backup IDs). The three generated 3-hour
-shifts then appear in `GET /api/shifts` and the dashboard after refreshing.
+shifts then appear in `GET /api/shifts` and the dashboard after refreshing, with
+ASSIGNED members where eligible and UNASSIGNED otherwise.
 Backups may be omitted or null for no backups. Invalid requests return `400`
 ProblemDetail. Missing library hours are treated as unavailable. Times must be
 on the same date, fit known hours, and be unambiguous, existent local times.
@@ -142,8 +143,46 @@ evenly; when division is uneven, earlier shifts get the extra slots. Each shift
 is at most four elapsed hours. Repeating internal generation for the same block
 does not add duplicate shifts or reset assignments/bookings. Repeating the POST
 itself creates a new block; it is not an idempotent create API. Editing, recurring
-generation, member assignment, and the planning form are separate future work.
+generation, release/reassignment, and the planning form are separate future work.
 
 Tests cover every quarter-hour duration through 24 hours, the architecture's
 examples, API validation, timezone conversion, repeated generation, and rollback
 of the entire block/backup/shift write when shift insertion fails.
+
+
+## Member assignment
+
+`AssignmentService` runs after generation and can be retried internally for a block.
+It processes only future UNASSIGNED shifts in start-time/ID order; it never resets
+ASSIGNED, BOOKED, MISSED, CANCELLED, or already-started shifts. Existing assignments
+across blocks take precedence; this is not a global schedule rebalancer.
+
+Eligible members must be active, have no ASSIGNED/BOOKED shift starting on that
+America/Chicago local date, have no overlapping active shift (including across
+midnight), and have no overlapping unavailability anywhere in the interval. Touching
+endpoints do not overlap. One-time and weekly unavailability are supported; weekly
+valid-from/until dates are inclusive. Unavailability ending at 24:00 is supported.
+On DST fallback, an ambiguous unavailable interval conservatively covers from the
+first start occurrence to the last end occurrence; nonexistent spring-forward
+boundaries clamp to the transition instant.
+
+Choose the fewest active shifts in the Monday–Sunday Chicago week, then the fewest
+elapsed seconds, then the lowest member ID. Count ASSIGNED and BOOKED only, including
+past active shifts in that week; allocate a cross-week shift's full duration to its
+local start-date week. Re-query after each assignment so earlier choices affect later
+ones. When no member qualifies, the shift remains UNASSIGNED with no member.
+
+PostgreSQL transaction advisory lock `730215011` serializes generation/assignment
+across application instances for the single v1 study group. Acquire it before block
+or shift row locks. Members and existing unavailability rows are share-locked while
+selecting candidates. The existing unique/exclusion constraints remain the final
+protection for daily limits and overlaps. This serializes short planning writes,
+not dashboard reads. Future release, member management, and availability mutation
+services must acquire the same advisory lock before changing assignment inputs;
+there is currently no API for those operations. Direct SQL writes do not participate
+in this application coordination. Any assignment failure rolls back the entire
+block, backups, generated shifts, and assignments.
+
+No public assignment endpoint or authentication bypass is added. Members still
+come from pre-existing database records (fictional dev fixtures locally); this does
+not implement registration, invitations, or magic-link authentication.

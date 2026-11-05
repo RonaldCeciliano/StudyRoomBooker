@@ -118,6 +118,39 @@ class StudyBlockApiTests extends PostgresIntegrationTest {
     }
 
     @Test
+    void createImmediatelyAssignsEligibleMembersAndDashboardReturnsTheirNames() throws Exception {
+        jdbc.update("INSERT INTO member(name, email) VALUES ('First', 'first@example.test'), ('Second', 'second@example.test')");
+        var response = post(body("2026-11-10", "12:00", "21:00", room, "[]"));
+        assertThat(response.statusCode()).isEqualTo(201);
+        try (var client = HttpClient.newHttpClient()) {
+            var shifts = client.send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/shifts"))
+                .GET().build(), HttpResponse.BodyHandlers.ofString());
+            var data = JsonMapper.builder().build().readTree(shifts.body());
+            assertThat(data.size()).isEqualTo(3);
+            assertThat(data.get(0).get("memberName").asString()).isEqualTo("First");
+            assertThat(data.get(0).get("status").asString()).isEqualTo("ASSIGNED");
+            assertThat(data.get(1).get("memberName").asString()).isEqualTo("Second");
+            assertThat(data.get(1).get("status").asString()).isEqualTo("ASSIGNED");
+            assertThat(data.get(2).get("memberName").isNull()).isTrue();
+            assertThat(data.get(2).get("status").asString()).isEqualTo("UNASSIGNED");
+        }
+    }
+
+    @Test
+    void assignmentFailureRollsBackTheWholeCreate() throws Exception {
+        jdbc.update("INSERT INTO member(name, email) VALUES ('First', 'first@example.test')");
+        jdbc.execute("ALTER TABLE shift ADD CONSTRAINT force_assignment_failure CHECK (status <> 'ASSIGNED')");
+        try {
+            assertThat(post(body("2026-11-10", "12:00", "21:00", room, "[" + backup + "]")).statusCode()).isEqualTo(500);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM study_block", Integer.class)).isZero();
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM study_block_backup_room", Integer.class)).isZero();
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM shift", Integer.class)).isZero();
+        } finally {
+            jdbc.execute("ALTER TABLE shift DROP CONSTRAINT force_assignment_failure");
+        }
+    }
+
+    @Test
     void acceptsOmittedBackups() throws Exception {
         assertThat(post("{\"date\":\"2026-11-10\",\"startTime\":\"12:00\",\"endTime\":\"13:00\",\"preferredRoomId\":" + room + "}").statusCode()).isEqualTo(201);
     }

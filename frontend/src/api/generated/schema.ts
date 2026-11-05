@@ -14,8 +14,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Create a one-time study block and its unassigned shifts
-         * @description Uses America/Chicago local date and times. Start must be in the future, both times must align to quarter hours, and end must follow start on the same day within known library hours. Ambiguous/nonexistent DST times are rejected. Rooms must exist and be active; backups are unique, ordered, and exclude the preferred room. Creation is atomic. Repeating POST creates a separate block; internal shift generation is idempotent per block.
+         * Create a one-time study block, split shifts, and assign eligible members
+         * @description Uses America/Chicago local date and times. Start must be in the future, both times must align to quarter hours, and end must follow start on the same day within known library hours. Ambiguous/nonexistent DST times are rejected. Rooms must exist and be active; backups are unique, ordered, and exclude the preferred room. Creation is atomic. Repeating POST creates a separate block; internal shift generation is idempotent per block. Generated future shifts are assigned chronologically to active eligible members with no active responsibility on the same Chicago date or overlap and no conflicting one-time or weekly unavailability. Rank by active shift count in the Monday-Sunday Chicago week, then elapsed hours, then member ID. Shifts remain UNASSIGNED when no member qualifies.
          */
         post: operations["createStudyBlock"];
         delete?: never;
@@ -125,7 +125,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Block persisted with evenly split, unassigned shifts of at most four hours. */
+            /** @description Block persisted with evenly split shifts of at most four hours and eligible members assigned. */
             201: {
                 headers: {
                     [name: string]: unknown;

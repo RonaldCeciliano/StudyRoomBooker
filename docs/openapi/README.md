@@ -1,9 +1,11 @@
 # API contract
 
-`POST /api/study-blocks` creates a one-time study block and evenly split unassigned
-shifts atomically. Its request/response schemas are in the same specification;
+`POST /api/study-blocks` atomically creates a one-time study block, splits it into
+shifts, and assigns eligible active members. Shifts without eligible members stay
+UNASSIGNED. Its request/response schemas are in the same specification;
 `StudyBlockApiTests` covers creation, validation, rollback, and repeated internal
-generation. Repeating POST creates a separate block. See the backend README for
+generation. `AssignmentServiceTests` covers eligibility, weekly fairness, availability,
+DST, and concurrent creates. Repeating POST creates a separate block. See the backend README for
 a request example and current planning limitations.
 
 `studyroombooker.yaml` is the authoritative contract for Issue #7 and ADR 0006.
