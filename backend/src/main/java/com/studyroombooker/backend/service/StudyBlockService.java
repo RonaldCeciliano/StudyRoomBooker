@@ -1,0 +1,92 @@
+package com.studyroombooker.backend.service;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.util.HashSet;
+import java.util.List;
+
+import com.studyroombooker.backend.repository.StudyBlockRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+@Service
+public class StudyBlockService {
+    private static final ZoneId LIBRARY_ZONE = ZoneId.of("America/Chicago");
+    private final StudyBlockRepository blocks;
+    private final Clock clock;
+
+    public StudyBlockService(StudyBlockRepository blocks, Clock clock) {
+        this.blocks = blocks;
+        this.clock = clock;
+    }
+
+    public record CreateRequest(LocalDate date, LocalTime startTime, LocalTime endTime,
+                                Long preferredRoomId, List<Long> backupRoomIds) {}
+    public record CreatedBlock(long id, String kind, LocalDate date, LocalTime startTime,
+                               LocalTime endTime, long preferredRoomId, List<Long> backupRoomIds) {}
+
+    @Transactional
+    public CreatedBlock create(CreateRequest request) {
+        require(request.date() != null && request.startTime() != null && request.endTime() != null
+            && request.preferredRoomId() != null, "date, startTime, endTime, and preferredRoomId are required");
+        var start = request.startTime();
+        var end = request.endTime();
+        require(end.isAfter(start), "endTime must be after startTime on the same date");
+        require(aligned(start) && aligned(end), "Times must align to 15-minute boundaries");
+        Instant startsAt = instant(request.date(), start);
+        instant(request.date(), end);
+        require(startsAt.isAfter(clock.instant()), "Study blocks must start in the future");
+        var hours = blocks.hours(request.date().getDayOfWeek().getValue())
+            .orElseThrow(() -> badRequest("Library hours are unavailable for this weekday"));
+        require(start.toSecondOfDay() >= hours.opensAtSeconds()
+            && end.toSecondOfDay() <= hours.closesAtSeconds(), "Study block must fit within library hours");
+        List<Long> backups = request.backupRoomIds() == null ? List.of() : request.backupRoomIds();
+        require(backups.stream().noneMatch(java.util.Objects::isNull), "Backup room IDs must not be null");
+        require(new HashSet<>(backups).size() == backups.size(), "Backup rooms must be unique");
+        require(!backups.contains(request.preferredRoomId()), "Preferred room cannot also be a backup");
+        var rooms = new java.util.ArrayList<Long>(backups);
+        rooms.add(request.preferredRoomId());
+        // Lock in stable order so concurrent creates with reversed backup order do not deadlock.
+        for (long room : rooms.stream().sorted().toList()) {
+            require(blocks.activeRoom(room), "All rooms must exist and be active");
+        }
+        long id = blocks.insert(request.date(), start, end, request.preferredRoomId(), backups);
+        generateShifts(id);
+        return new CreatedBlock(id, "ONE_TIME", request.date(), start, end,
+            request.preferredRoomId(), List.copyOf(backups));
+    }
+
+    /** Repeated generation preserves existing assignments and booking state. */
+    @Transactional
+    public void generateShifts(long blockId) {
+        var block = blocks.findOneTime(blockId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "One-time study block not found"));
+        blocks.insertShifts(block, ShiftSplitter.split(instant(block.date(), block.startTime()),
+            instant(block.date(), block.endTime())));
+    }
+
+    private static boolean aligned(LocalTime time) {
+        return time.getNano() == 0 && time.toSecondOfDay() % 900 == 0;
+    }
+
+    private static Instant instant(LocalDate date, LocalTime time) {
+        var local = LocalDateTime.of(date, time);
+        var offsets = LIBRARY_ZONE.getRules().getValidOffsets(local);
+        require(offsets.size() == 1, "Times must exist and be unambiguous in America/Chicago");
+        return local.toInstant(offsets.getFirst());
+    }
+
+    private static void require(boolean condition, String message) {
+        if (!condition) throw badRequest(message);
+    }
+
+    private static ResponseStatusException badRequest(String message) {
+        return new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
+    }
+}

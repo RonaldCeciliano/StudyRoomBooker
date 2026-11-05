@@ -20,7 +20,7 @@ class OpenApiDocumentationTests extends PostgresIntegrationTest {
 	private int port;
 
 	@Test
-	void servesCommittedContractAndConfiguresSwaggerWithoutImplementingShifts() throws Exception {
+	void servesCommittedContractAndConfiguresSwagger() throws Exception {
 		try (var client = HttpClient.newHttpClient()) {
 			var contract = get(client, "/openapi/studyroombooker.yaml");
 			assertThat(contract.statusCode()).isEqualTo(200);
@@ -30,7 +30,6 @@ class OpenApiDocumentationTests extends PostgresIntegrationTest {
 			assertThat(config.statusCode()).isEqualTo(200);
 			assertThat(config.body()).contains("/openapi/studyroombooker.yaml");
 			assertThat(get(client, "/swagger-ui/index.html").statusCode()).isEqualTo(200);
-			assertThat(get(client, "/api/shifts").statusCode()).isEqualTo(404);
 		}
 	}
 

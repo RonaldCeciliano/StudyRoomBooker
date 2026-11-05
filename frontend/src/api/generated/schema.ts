@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/api/study-blocks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a one-time study block and its unassigned shifts
+         * @description Uses America/Chicago local date and times. Start must be in the future, both times must align to quarter hours, and end must follow start on the same day within known library hours. Ambiguous/nonexistent DST times are rejected. Rooms must exist and be active; backups are unique, ordered, and exclude the preferred room. Creation is atomic. Repeating POST creates a separate block; internal shift generation is idempotent per block.
+         */
+        post: operations["createStudyBlock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/shifts": {
         parameters: {
             query?: never;
@@ -28,6 +48,33 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        CreateStudyBlock: {
+            /** Format: date */
+            date: string;
+            /** @example 12:00 */
+            startTime: string;
+            /** @example 21:00 */
+            endTime: string;
+            /** Format: int64 */
+            preferredRoomId: number;
+            /** @description Optional; omission or null means no backups. Order determines priority. */
+            backupRoomIds?: number[] | null;
+        };
+        StudyBlock: {
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            kind: "ONE_TIME";
+            /** Format: date */
+            date: string;
+            /** @example 12:00:00 */
+            startTime: string;
+            /** @example 21:00:00 */
+            endTime: string;
+            /** Format: int64 */
+            preferredRoomId: number;
+            backupRoomIds: number[];
+        };
         Shift: {
             id: number;
             /**
@@ -65,6 +112,48 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    createStudyBlock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateStudyBlock"];
+            };
+        };
+        responses: {
+            /** @description Block persisted with evenly split, unassigned shifts of at most four hours. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudyBlock"];
+                };
+            };
+            /** @description Invalid JSON, scheduling times, library hours, or room selection. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected failure. Database failures do not disclose database details. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     listShifts: {
         parameters: {
             query?: never;

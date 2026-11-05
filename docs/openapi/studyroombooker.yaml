@@ -2,11 +2,47 @@ openapi: 3.0.3
 info:
   title: StudyRoomBooker API
   version: 0.1.0
-  description: Initial authoritative contract. The shifts backend endpoint is not implemented yet.
+  description: Authoritative contract for the database-backed shifts endpoint.
 servers:
   - url: /
     description: Same-origin API
 paths:
+  /api/study-blocks:
+    post:
+      operationId: createStudyBlock
+      summary: Create a one-time study block and its unassigned shifts
+      description: >-
+        Uses America/Chicago local date and times. Start must be in the future,
+        both times must align to quarter hours, and end must follow start on the
+        same day within known library hours. Ambiguous/nonexistent DST times are
+        rejected. Rooms must exist and be active; backups are unique, ordered,
+        and exclude the preferred room. Creation is atomic. Repeating POST creates
+        a separate block; internal shift generation is idempotent per block.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStudyBlock'
+      responses:
+        '201':
+          description: Block persisted with evenly split, unassigned shifts of at most four hours.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudyBlock'
+        '400':
+          description: Invalid JSON, scheduling times, library hours, or room selection.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        default:
+          description: Unexpected failure. Database failures do not disclose database details.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
   /api/shifts:
     get:
       operationId: listShifts
@@ -62,6 +98,59 @@ paths:
                 $ref: '#/components/schemas/ProblemDetail'
 components:
   schemas:
+    CreateStudyBlock:
+      type: object
+      required: [date, startTime, endTime, preferredRoomId]
+      properties:
+        date:
+          type: string
+          format: date
+        startTime:
+          type: string
+          pattern: '^([01][0-9]|2[0-3]):[0-5][0-9](:00)?$'
+          example: '12:00'
+        endTime:
+          type: string
+          pattern: '^([01][0-9]|2[0-3]):[0-5][0-9](:00)?$'
+          example: '21:00'
+        preferredRoomId:
+          type: integer
+          format: int64
+        backupRoomIds:
+          type: array
+          description: Optional; omission or null means no backups. Order determines priority.
+          nullable: true
+          uniqueItems: true
+          items:
+            type: integer
+            format: int64
+    StudyBlock:
+      type: object
+      required: [id, kind, date, startTime, endTime, preferredRoomId, backupRoomIds]
+      properties:
+        id:
+          type: integer
+          format: int64
+        kind:
+          type: string
+          enum: [ONE_TIME]
+        date:
+          type: string
+          format: date
+        startTime:
+          type: string
+          example: '12:00:00'
+        endTime:
+          type: string
+          example: '21:00:00'
+        preferredRoomId:
+          type: integer
+          format: int64
+        backupRoomIds:
+          type: array
+          items:
+            type: integer
+            format: int64
     Shift:
       type: object
       required: [id, startsAt, endsAt, status, plannedRoomCode, memberName]
