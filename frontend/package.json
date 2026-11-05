@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "dev:mock": "vite --mode mock",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "generate:api": "openapi-typescript ../openapi.yaml -o src/api/schema.d.ts",
+    "check:api": "npm run generate:api && git diff --exit-code -- src/api/schema.d.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.0",
@@ -29,6 +31,7 @@
     "@vitejs/plugin-react": "^6.1.1",
     "jsdom": "^30.1.1",
     "msw": "^2.15.0",
+    "openapi-typescript": "^7.13.0",
     "oxlint": "^1.81.0",
     "typescript": "~6.0.2",
     "vite": "^8.3.0",
@@ -38,5 +41,10 @@
     "workerDirectory": [
       "public"
     ]
+  },
+  "overrides": {
+    "openapi-typescript": {
+      "typescript": "$typescript"
+    }
   }
 }
