@@ -10,6 +10,7 @@ import java.time.temporal.TemporalAdjusters;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.studyroombooker.backend.repository.AssignmentRepository;
 import com.studyroombooker.backend.repository.AssignmentRepository.Candidate;
@@ -34,20 +35,39 @@ public class AssignmentService {
     @Transactional
     public void assignBlock(long blockId) {
         assignments.lockAssignments();
+        var availability = availability();
+        for (var shift : assignments.pendingShifts(blockId, clock.instant())) {
+            assign(shift, availability, null);
+        }
+    }
+
+    /** Exclusion applies only to this immediate attempt, never to later blocks/dates. */
+    @Transactional
+    public void assignReleasedShift(long shiftId, long excludedMemberId) {
+        assignments.lockAssignments();
+        var availability = availability();
+        assignments.pendingShift(shiftId, clock.instant())
+            .ifPresent(shift -> assign(shift, availability, excludedMemberId));
+    }
+
+    private Map<Long, List<Unavailability>> availability() {
         // Keep members active and existing unavailability stable for the transaction.
         var availability = new HashMap<Long, List<Unavailability>>();
         for (long member : assignments.activeMembers()) {
             availability.put(member, assignments.unavailability(member));
         }
-        for (var shift : assignments.pendingShifts(blockId, clock.instant())) {
-            var weekStart = shift.localDate().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-            // Query again after each write so earlier assignments affect eligibility and fairness.
-            assignments.candidates(shift, weekStart).stream()
-                .filter(candidate -> availability.containsKey(candidate.id()))
-                .filter(candidate -> availability.get(candidate.id()).stream().noneMatch(rule -> overlaps(shift, rule)))
-                .min(FAIRNESS)
-                .ifPresent(candidate -> assignments.assign(shift.id(), candidate.id()));
-        }
+        return availability;
+    }
+
+    private void assign(PendingShift shift, Map<Long, List<Unavailability>> availability, Long excludedMemberId) {
+        var weekStart = shift.localDate().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        // Query again after each write so earlier assignments affect eligibility and fairness.
+        assignments.candidates(shift, weekStart).stream()
+            .filter(candidate -> excludedMemberId == null || candidate.id() != excludedMemberId)
+            .filter(candidate -> availability.containsKey(candidate.id()))
+            .filter(candidate -> availability.get(candidate.id()).stream().noneMatch(rule -> overlaps(shift, rule)))
+            .min(FAIRNESS)
+            .ifPresent(candidate -> assignments.assign(shift.id(), candidate.id()));
     }
 
     private static boolean overlaps(PendingShift shift, Unavailability rule) {

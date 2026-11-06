@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -41,6 +42,16 @@ public class AssignmentRepository {
     public List<Long> activeMembers() {
         return jdbc.query("SELECT id FROM member WHERE active ORDER BY id FOR SHARE",
             (row, index) -> row.getLong(1));
+    }
+
+    public Optional<PendingShift> pendingShift(long shiftId, Instant now) {
+        return jdbc.query("""
+            SELECT id, starts_at, ends_at, local_date FROM shift
+            WHERE id = ? AND status = 'UNASSIGNED' AND starts_at > ? FOR UPDATE
+            """, (row, index) -> new PendingShift(row.getLong("id"),
+                row.getObject("starts_at", OffsetDateTime.class).toInstant(),
+                row.getObject("ends_at", OffsetDateTime.class).toInstant(),
+                row.getObject("local_date", LocalDate.class)), shiftId, utc(now)).stream().findFirst();
     }
 
     public List<Candidate> candidates(PendingShift shift, LocalDate weekStart) {

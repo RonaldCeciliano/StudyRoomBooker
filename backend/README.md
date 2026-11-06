@@ -143,7 +143,8 @@ evenly; when division is uneven, earlier shifts get the extra slots. Each shift
 is at most four elapsed hours. Repeating internal generation for the same block
 does not add duplicate shifts or reset assignments/bookings. Repeating the POST
 itself creates a new block; it is not an idempotent create API. Editing, recurring
-generation, release/reassignment, and the planning form are separate future work.
+generation and the planning form are separate future work. Owner-only release and
+immediate reassignment are implemented as described below.
 
 Tests cover every quarter-hour duration through 24 hours, the architecture's
 examples, API validation, timezone conversion, repeated generation, and rollback
@@ -177,8 +178,8 @@ across application instances for the single v1 study group. Acquire it before bl
 or shift row locks. Members and existing unavailability rows are share-locked while
 selecting candidates. The existing unique/exclusion constraints remain the final
 protection for daily limits and overlaps. This serializes short planning writes,
-not dashboard reads. Future release, member management, and availability mutation
-services must acquire the same advisory lock before changing assignment inputs;
+not dashboard reads. Release uses the same lock. Future member management and availability mutation
+services must acquire this advisory lock before changing assignment inputs;
 there is currently no API for those operations. Direct SQL writes do not participate
 in this application coordination. Any assignment failure rolls back the entire
 block, backups, generated shifts, and assignments.
@@ -186,3 +187,42 @@ block, backups, generated shifts, and assignments.
 No public assignment endpoint or authentication bypass is added. Members still
 come from pre-existing database records (fictional dev fixtures locally); this does
 not implement registration, invitations, or magic-link authentication.
+
+
+## Release and immediate reassignment
+
+`POST /api/shifts/{id}/release` returns 204 with no body after a successful release.
+The controller obtains the member email from a trusted `Principal.getName()`; there
+is no client-selected member ID or header identity in production. The principal must
+map to an active member's primary email (case-insensitive) and own the shift. Missing
+identity returns 401, inactive/unknown membership or wrong ownership 403, a missing
+shift 404 for an active member, and an owned shift in an invalid state/time 409.
+GET never releases anything.
+
+Only future ASSIGNED shifts are releasable. BOOKED, MISSED, CANCELLED, started,
+past, and unowned shifts are left untouched. A booked reservation must be handled
+through the library's cancellation process; this endpoint never cancels in LibCal
+or changes booking metadata/cancellation flags on rejected requests.
+
+In one transaction, take the shared assignment lock before row locks, clear the
+assignment, then retry only that shift with the releasing member excluded. All
+existing eligibility and fairness rules apply. No eligible replacement is a normal
+success: leave UNASSIGNED with a null member. Any reassignment failure rolls back
+the entire release, retaining the original owner and timestamps. Duplicate or
+concurrent retries cannot release the replacement owner's shift. The exclusion is
+not stored and does not bar future assignments on other days (or future independent
+assignment attempts). Refresh `GET /api/shifts` after success to see the new owner.
+
+Authentication is still pending. Ordinary development/browser requests return 401;
+there is no release button or usable sign-in flow yet. The future magic-link/session
+implementation must populate the trusted principal with the member's primary email
+and enable session/CSRF protection for mutating endpoints. Do not substitute request
+headers, query parameters, or JSON identity for that principal. HTTP tests provide a
+principal through a filter defined only in `src/test`; a separate test without that
+filter proves that forged identity headers/body do not authenticate real requests.
+
+Tests exercise successful replacement, no eligible replacement, ownership/state/time
+checks, unchanged booking data, immediate-only exclusion, unchanged unrelated shifts,
+weekly fairness, rollback on failed replacement, duplicate concurrent release, and
+HTTP status/ProblemDetail responses. Existing assignment tests continue to cover
+eligibility, overlapping reservations, local-date/week boundaries, and DST.

@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/api/shifts/{id}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Release the current member's future unbooked assignment
+         * @description Requires a trusted authenticated server principal whose name is the active member's email. The current application has no sign-in flow yet, so normal unauthenticated requests return 401. Client-provided member IDs, email headers, and request bodies never establish identity. Only the owner of a future ASSIGNED shift may release it; BOOKED shifts are not released and no LibCal cancellation is performed. Release and immediate reassignment are atomic. The releasing member is excluded only from this immediate attempt; all other eligibility and weekly fairness rules still apply. When no replacement is eligible the shift remains UNASSIGNED. Repeating a release after ownership changes is rejected without affecting the new owner. After success, refresh GET /api/shifts for the resulting assignment.
+         */
+        post: operations["releaseShift"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/study-blocks": {
         parameters: {
             query?: never;
@@ -112,6 +132,71 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    releaseShift: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Released and reassignment attempted; no response body. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No authenticated server principal. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Principal is not an active group member or does not own the shift. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Shift does not exist (for an active authenticated member). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Owned shift is already started, past, booked, missed, or cancelled. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Invalid path or unexpected failure; failed reassignment rolls back release. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     createStudyBlock: {
         parameters: {
             query?: never;

@@ -1,5 +1,14 @@
 # API contract
 
+`POST /api/shifts/{id}/release` atomically releases an owned future ASSIGNED shift
+and attempts reassignment, excluding the releasing member for this attempt only.
+It returns 204 with no body; refresh the shift list to read the outcome. The release
+operation requires a trusted authenticated principal. The session security scheme
+is documented for the planned authentication integration; ordinary requests currently
+return 401 because no sign-in flow is implemented. Test-only principals exercise the
+successful HTTP path without introducing production identity headers. See the backend
+README for ownership, state, error, and concurrency behavior.
+
 `POST /api/study-blocks` atomically creates a one-time study block, splits it into
 shifts, and assigns eligible active members. Shifts without eligible members stay
 UNASSIGNED. Its request/response schemas are in the same specification;
