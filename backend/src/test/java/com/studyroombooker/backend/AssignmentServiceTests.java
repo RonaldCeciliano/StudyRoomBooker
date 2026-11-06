@@ -12,6 +12,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import com.studyroombooker.backend.service.AssignmentService;
+import com.studyroombooker.backend.service.ShiftReleaseService;
 import com.studyroombooker.backend.service.StudyBlockService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,6 +24,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Import(AssignmentServiceTests.FixedTime.class)
 class AssignmentServiceTests extends PostgresIntegrationTest {
@@ -36,6 +38,7 @@ class AssignmentServiceTests extends PostgresIntegrationTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired AssignmentService assignments;
     @Autowired StudyBlockService blocks;
+    @Autowired ShiftReleaseService releases;
     long room;
 
     @BeforeEach
@@ -231,6 +234,93 @@ class AssignmentServiceTests extends PostgresIntegrationTest {
         }
         assertThat(jdbc.queryForObject("SELECT count(*) FROM shift WHERE status = 'ASSIGNED'", Integer.class)).isEqualTo(2);
         assertThat(jdbc.queryForObject("SELECT count(DISTINCT member_id) FROM shift", Integer.class)).isEqualTo(2);
+    }
+
+    @Test
+    void releaseExcludesOriginalMemberAndReassignsOnlyTheTargetShift() {
+        long original = member(true), replacement = member(true);
+        long block = block("2026-11-10");
+        long target = shift(block, "2026-11-10T12:00", "2026-11-10T15:00", original, "ASSIGNED");
+        long other = shift(block, "2026-11-10T15:00", "2026-11-10T18:00", null, "UNASSIGNED");
+        releases.release(target, email(original));
+        assertMember(target, replacement);
+        assertUnassigned(other);
+    }
+
+    @Test
+    void releaseWithNoReplacementRemainsUnassignedAndDoesNotExcludeMemberOnOtherDays() {
+        long original = member(true);
+        long target = shift(block("2026-11-10"), "2026-11-10T12:00", "2026-11-10T15:00", original, "ASSIGNED");
+        releases.release(target, email(original));
+        assertUnassigned(target);
+        long nextBlock = block("2026-11-11");
+        long next = shift(nextBlock, "2026-11-11T12:00", "2026-11-11T15:00", null, "UNASSIGNED");
+        assignments.assignBlock(nextBlock);
+        assertMember(next, original);
+    }
+
+    @Test
+    void replacementStillRespectsInactiveUnavailableAndDailyBusyMembers() {
+        long original = member(true);
+        member(false);
+        long unavailable = member(true), busy = member(true), eligible = member(true);
+        weekly(unavailable, "2026-11-10", null, "12:00", "15:00");
+        shift(block("2026-11-10"), "2026-11-10T18:00", "2026-11-10T19:00", busy, "BOOKED");
+        long target = shift(block("2026-11-10"), "2026-11-10T12:00", "2026-11-10T15:00", original, "ASSIGNED");
+        releases.release(target, email(original));
+        assertMember(target, eligible);
+    }
+
+    @Test
+    void replacementUsesWeeklyFairnessRatherThanLowestEligibleId() {
+        long original = member(true), busier = member(true), lessBusy = member(true);
+        shift(block("2026-11-09"), "2026-11-09T12:00", "2026-11-09T13:00", busier, "ASSIGNED");
+        long target = shift(block("2026-11-10"), "2026-11-10T12:00", "2026-11-10T15:00", original, "ASSIGNED");
+        releases.release(target, email(original));
+        assertMember(target, lessBusy);
+    }
+
+    @Test
+    void failedReassignmentRollsBackOriginalResponsibilityAndTimestamps() {
+        long original = member(true), replacement = member(true);
+        long target = shift(block("2026-11-10"), "2026-11-10T12:00", "2026-11-10T15:00", original, "ASSIGNED");
+        var before = jdbc.queryForMap("SELECT * FROM shift WHERE id = ?", target);
+        jdbc.execute("ALTER TABLE shift ADD CONSTRAINT fail_replacement CHECK (member_id <> " + replacement + ")");
+        try {
+            assertThatThrownBy(() -> releases.release(target, email(original)))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+            assertThat(jdbc.queryForMap("SELECT * FROM shift WHERE id = ?", target)).isEqualTo(before);
+        } finally {
+            jdbc.execute("ALTER TABLE shift DROP CONSTRAINT fail_replacement");
+        }
+    }
+
+    @Test
+    void duplicateConcurrentReleaseCannotReleaseTheNewOwnersAssignment() throws Exception {
+        long original = member(true), replacement = member(true);
+        String owner = email(original);
+        long target = shift(block("2026-11-10"), "2026-11-10T12:00", "2026-11-10T15:00", original, "ASSIGNED");
+        var start = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var tasks = java.util.stream.IntStream.range(0, 2).mapToObj(index -> executor.submit(() -> {
+                if (!start.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("Start barrier timed out");
+                try {
+                    releases.release(target, owner);
+                    return 204;
+                } catch (org.springframework.web.server.ResponseStatusException exception) {
+                    return exception.getStatusCode().value();
+                }
+            })).toList();
+            start.countDown();
+            var results = new java.util.ArrayList<Integer>();
+            for (var task : tasks) results.add(task.get(15, TimeUnit.SECONDS));
+            assertThat(results).containsExactlyInAnyOrder(204, 403);
+        }
+        assertMember(target, replacement);
+    }
+
+    private String email(long member) {
+        return jdbc.queryForObject("SELECT email FROM member WHERE id = ?", String.class, member);
     }
 
     private long member(boolean active) {

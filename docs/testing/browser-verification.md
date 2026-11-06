@@ -48,3 +48,25 @@ Automated checks: 32 backend tests and 12 frontend tests pass, along with fronte
 build/lint, OpenAPI validation, and generated-type freshness. Backend tests cover
 eligibility, workload ranking, weekly/local-day boundaries, one-time and recurring
 unavailability, DST, repeat assignment, concurrent creates, and transaction rollback.
+
+## Release/reassignment follow-up — November 5, 2026
+
+Verified in Brave against the real development backend and PostgreSQL, without
+mocks. A POST to release the assigned demo shift returned 401 without a principal;
+forged member-ID/email headers, query parameters, and JSON also returned 401. Both
+responses used application/problem+json. GET returned 405. Comparing the full shift
+list before/after confirmed no assignment or booking changes. The dashboard still
+rendered on desktop/mobile with no horizontal overflow or uncaught JavaScript errors.
+The expected failed HTTP requests appeared in the browser console.
+
+A successful signed-in browser release cannot be exercised yet because there is
+no sign-in flow or release UI. Successful owner release, replacement names in the
+real HTTP shift list, rejection cases, and no-replacement behavior are verified
+against PostgreSQL using a principal adapter defined only on the test classpath.
+The production-style HTTP test confirms those test headers do not authenticate
+ordinary requests. No development data was added or removed for this check.
+
+Automated checks: 45 backend tests, 12 frontend tests, build/lint, OpenAPI validation,
+and generated-type freshness pass. Release tests include immediate-only exclusion,
+weekly fairness, untouched unrelated shifts and booking data, rollback after failed
+reassignment, and simultaneous duplicate releases preserving the replacement owner.

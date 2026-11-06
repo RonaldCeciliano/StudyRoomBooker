@@ -12,7 +12,7 @@ A possible Phase 2 Chrome extension depends on University Libraries approval. It
 
 **Milestone 0 foundation is in progress.** The React dashboard reads shifts from a PostgreSQL-backed Spring Boot API. Flyway creates the planning schema; the development profile adds fictional sample data.
 
-The backend supports one-time study-block creation, even shift generation, and fair member assignment based on availability and weekly workload. The planning UI, release/reassignment, authentication, notifications, and production deployment remain to be implemented. See the backend and frontend READMEs for local startup commands.
+The backend supports one-time study-block creation, even shift generation, and fair member assignment based on availability and weekly workload. The backend also supports owner-only release and immediate reassignment; its HTTP endpoint requires a trusted authenticated principal, pending sign-in implementation. The planning UI, authentication, notifications, and production deployment remain to be implemented. See the backend and frontend READMEs for local startup commands.
 
 The target operating cost is **$0**.
 
