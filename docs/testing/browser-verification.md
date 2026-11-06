@@ -25,3 +25,26 @@ Screenshots and temporary automation tooling were kept outside the repository.
 
 Automated checks for this implementation: 15 backend tests, 12 frontend tests,
 frontend build/lint, OpenAPI validation, and generated-type freshness all passed.
+
+## Member assignment follow-up — November 5, 2026
+
+Verified the member-assignment implementation in Brave against the same real
+development stack, without mocks. Created a new noon–9 PM study block on a date
+without existing responsibilities, using the original fictional members.
+
+- The POST returned 201 and generated three 3-hour shifts.
+- After dashboard reload, the first shift was ASSIGNED to Ronald (Demo), the
+  second to Genaro (Demo), and the third remained UNASSIGNED with no member.
+- Original fixture assignments/bookings remained unchanged.
+- Desktop (1440 × 1000) and mobile (390 × 844) displayed the expected names,
+  times, and statuses. Mobile scrolling and the fixed navigation were inspected
+  in separate viewport screenshots; there was no horizontal overflow.
+- With the browser timezone set to America/Los_Angeles, times still displayed
+  in America/Chicago. No mock workers or unexpected browser errors occurred.
+- Removed only the temporary block, backup relation, and three generated shifts;
+  the three original demo shifts remain.
+
+Automated checks: 32 backend tests and 12 frontend tests pass, along with frontend
+build/lint, OpenAPI validation, and generated-type freshness. Backend tests cover
+eligibility, workload ranking, weekly/local-day boundaries, one-time and recurring
+unavailability, DST, repeat assignment, concurrent creates, and transaction rollback.
