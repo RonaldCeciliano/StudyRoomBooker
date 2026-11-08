@@ -52,11 +52,11 @@ into future time-dependent services; tests can supply a primary `Clock.fixed(...
 bean for deterministic time. No global JVM timezone is changed.
 
 The entry point and existing dependencies remain unchanged. The `config`, `controller`,
-`service`, and `repository` packages establish the conventional layers. Domain
-JPA write entities remain to be implemented. Shift listing and study-block creation
-currently use JDBC through repository, service, and controller layers.
-Hibernate schema generation is disabled in development/tests. Flyway applies
-`src/main/resources/db/migration/V1__core_planning_schema.sql` on startup.
+`service`, and `repository` packages establish the conventional layers. All
+repositories use plain JDBC (`JdbcTemplate`); the JPA starter is on the classpath
+(it supplies the transaction manager) but no entities exist. Hibernate schema
+generation is disabled. Flyway applies the migrations in
+`src/main/resources/db/migration/` on startup.
 
 ## Planning schema
 
