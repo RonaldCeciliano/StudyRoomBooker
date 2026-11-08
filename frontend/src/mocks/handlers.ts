@@ -4,6 +4,9 @@ import type { Unavailability, UnavailabilityInput } from '../features/availabili
 import type { StudyBlock, StudyBlockInput } from '../features/study-blocks/api'
 import { mockSession, VALID_MAGIC_TOKEN } from './session'
 
+export const VALID_ACTION_TOKEN = 'valid-action-token'
+export const actionTokenUsed = { value: false }
+
 const withSeconds = (time: string) => (time.length === 5 ? `${time}:00` : time)
 
 function toBlock(input: StudyBlockInput): Omit<StudyBlock, 'id'> {
@@ -112,6 +115,27 @@ export const handlers = [
     const index = studyBlocks.findIndex((b) => b.id === Number(params.id))
     if (index < 0) return problem(404, 'Not Found', 'One-time study block not found')
     studyBlocks.splice(index, 1)
+    return new HttpResponse(null, { status: 204 })
+  }),
+  // Action links: token `valid-action-token` previews shift 2 until it is used.
+  http.get('/api/actions/booked', ({ request }) => {
+    const token = new URL(request.url).searchParams.get('token')
+    const shift = shifts[1]
+    if (token !== VALID_ACTION_TOKEN || actionTokenUsed.value) return problem(404, 'Not Found', 'This link is invalid, expired, or already used.')
+    return HttpResponse.json({
+      shiftId: shift.id,
+      startsAt: shift.startsAt,
+      endsAt: shift.endsAt,
+      plannedRoomCode: shift.plannedRoomCode,
+      memberName: shift.memberName ?? '',
+      status: shift.status,
+    })
+  }),
+  http.post('/api/actions/booked', async ({ request }) => {
+    const { token } = (await request.json()) as { token?: string }
+    if (token !== VALID_ACTION_TOKEN || actionTokenUsed.value) return problem(404, 'Not Found', 'This link is invalid, expired, or already used.')
+    actionTokenUsed.value = true
+    Object.assign(shifts[1], { status: 'BOOKED', bookedRoomCode: shifts[1].plannedRoomCode })
     return new HttpResponse(null, { status: 204 })
   }),
   http.post('/api/shifts/:id/release', ({ params }) => {

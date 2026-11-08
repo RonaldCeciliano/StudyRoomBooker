@@ -1,4 +1,5 @@
 import { createBrowserRouter, type RouteObject } from 'react-router'
+import { BookedActionPage } from '../features/actions/BookedActionPage'
 import { AvailabilityPage } from '../features/availability/AvailabilityPage'
 import { LoginPage } from '../features/auth/LoginPage'
 import { MagicLinkPage } from '../features/auth/MagicLinkPage'
@@ -41,6 +42,7 @@ export const routes: RouteObject[] = [
               </RequireSession>
             ),
           },
+          { path: 'actions/booked', element: <BookedActionPage /> },
           { path: 'login', element: <LoginPage /> },
           { path: 'login/magic', element: <MagicLinkPage /> },
           { path: '*', element: <NotFoundPage /> },

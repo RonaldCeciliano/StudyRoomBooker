@@ -15,7 +15,7 @@ final class ReminderEmail {
 
     private ReminderEmail() {}
 
-    static EmailMessage of(NotificationRepository.Due due, String appUrl) {
+    static EmailMessage of(NotificationRepository.Due due, String appUrl, String actionToken) {
         String date = DATE.format(due.date());
         String backups = due.backupRoomCodes().isEmpty() ? "None" : String.join(", ", due.backupRoomCodes());
         return new EmailMessage(due.email(), "Book your study room for " + date, """
@@ -32,8 +32,11 @@ final class ReminderEmail {
             This date is now within LibCal's 14-day booking window. If the time slot is not
             open yet, try again later today.
 
-            After booking, mark the shift booked in StudyRoomBooker: %s
+            After booking, tell the group (opens a page; press Confirm):
+            I booked it: %sactions/booked?token=%s
+
+            Booked a backup room instead? Mark it booked from the dashboard: %s
             """.formatted(due.roomCode(), backups, date, TIME.format(due.startsAt()), TIME.format(due.endsAt()),
-                LIBCAL_RESERVE_URL, appUrl));
+                LIBCAL_RESERVE_URL, appUrl, actionToken, appUrl));
     }
 }

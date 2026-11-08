@@ -5,6 +5,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.ZoneId;
 
+import com.studyroombooker.backend.action.ActionTokenService;
 import com.studyroombooker.backend.email.EmailSender;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,9 +33,12 @@ public class NotificationService {
     private final TransactionTemplate transactions;
     private final Clock clock;
     private final String appUrl;
+    private final ActionTokenService actionTokens;
 
     public NotificationService(NotificationRepository notifications, EmailSender emailSender,
-            TransactionTemplate transactions, Clock clock, @Value("${app.base-url:}") String appUrl) {
+            TransactionTemplate transactions, Clock clock, @Value("${app.base-url:}") String appUrl,
+            ActionTokenService actionTokens) {
+        this.actionTokens = actionTokens;
         this.notifications = notifications;
         this.emailSender = emailSender;
         this.transactions = transactions;
@@ -74,12 +78,15 @@ public class NotificationService {
             notifications.markFailed(id, "Not sent: the shift is no longer assigned to this member", null, false);
             return Outcome.SKIPPED;
         }
+        // The "I booked it" link is valid until the shift ends.
+        String token = actionTokens.issueMarkBooked(due.memberId(), due.shiftId(), due.endsAt());
         try {
-            emailSender.send(ReminderEmail.of(due, appUrl));
+            emailSender.send(ReminderEmail.of(due, appUrl, token));
             notifications.markSent(id, now);
             return Outcome.SENT;
         }
         catch (RuntimeException ex) {
+            actionTokens.revoke(token); // the link was never delivered
             int attempts = due.attemptCount() + 1;
             var retryAt = attempts >= MAX_ATTEMPTS ? null : now.plus(FIRST_RETRY.multipliedBy(1L << (attempts - 1)));
             String error = ex.getClass().getSimpleName() + ": " + String.valueOf(ex.getMessage());

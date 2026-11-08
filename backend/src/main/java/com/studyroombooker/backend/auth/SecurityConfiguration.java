@@ -32,6 +32,8 @@ public class SecurityConfiguration {
             .addFilterBefore(new ActiveMemberFilter(members), AnonymousAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.GET, "/api/session").permitAll()
+                // Email action links authorize with their own single-use token.
+                .requestMatchers("/api/actions/**").permitAll()
                 // Blank emails skip the token filter; SessionController answers them with the same 204.
                 .requestMatchers(HttpMethod.POST, "/ott/generate").permitAll()
                 .requestMatchers("/api/**").authenticated()
