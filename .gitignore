@@ -48,3 +48,6 @@ out/
 .AppleDouble
 .LSOverride
 ._*
+
+# Production database dumps (docs/deployment.md)
+/backups/

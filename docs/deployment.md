@@ -105,4 +105,63 @@ curl http://localhost:18080/api/session
 docker compose -p srb-smoke down -v
 ```
 
-Backups are tracked separately (#48).
+## Backups
+
+The `backup` service (`infra/backup/backup.sh`, using the `postgres:17` image) takes one
+`pg_dump` per America/Chicago day. It checks hourly, starting 5 minutes after it starts so
+migrations finish first, and retries on the next check if a dump fails. Each dump:
+
+- uses pg_dump's compressed custom format (`--format=custom --compress=9`);
+- is verified with `pg_restore --list` and written atomically (no half-written files);
+- lands in `BACKUP_HOST_DIR` (default `./backups` next to `docker-compose.yml`), a host
+  directory separate from the `postgres-data` volume;
+- is deleted after `BACKUP_RETENTION_DAYS` days (default 14).
+
+Check it with `docker compose logs backup` and `ls -lh backups/`. Take one on demand
+(before an upgrade, for example) with:
+
+```sh
+docker compose exec backup /bin/sh /backup.sh once
+```
+
+### Off-box copy
+
+A host directory still lives on the same VM. Copy it off the box. The plan is Oracle Object
+Storage through its S3-compatible API, for example with [rclone](https://rclone.org/) and a
+customer secret key, from the host's crontab:
+
+```sh
+# crontab -e on the VM: sync dumps at 04:30 every day
+30 4 * * * rclone sync /home/ubuntu/StudyRoomBooker/backups oci:studyroombooker-backups --max-age 15d
+```
+
+Creating the bucket and keys needs Ronald's Oracle access. Keep rclone credentials in the
+VM's `~/.config/rclone/rclone.conf`, never in Git. **Verify the current Always Free Object
+Storage allowance in the Oracle console before relying on it.** The total is believed to be
+around 20 GB, but this has not been verified. Daily dumps of this database are tens of
+kilobytes to a few megabytes, so 14 days fits easily.
+
+### Restore
+
+1. Pick a dump: `ls -lh backups/`.
+2. Stop the app so nothing writes during the restore:
+   `docker compose stop caddy backend`
+3. Recreate the empty database:
+
+   ```sh
+   docker compose exec db sh -c 'dropdb -U "$POSTGRES_USER" studyroombooker && createdb -U "$POSTGRES_USER" studyroombooker'
+   ```
+
+4. Restore (the `backup` container has the PostgreSQL client and the dumps mounted):
+
+   ```sh
+   docker compose exec backup pg_restore --host=db --dbname=studyroombooker --no-owner --exit-on-error \
+     /backups/studyroombooker-YYYY-MM-DDTHHMMSS.dump
+   ```
+
+5. Start the app: `docker compose start backend caddy`. Flyway applies any newer
+   migrations. Users must sign in again, because sessions are not stored in the database.
+
+To restore on a new VM, copy the dump into its `backups/` directory first (for example
+`rclone copy oci:studyroombooker-backups/<file> backups/`), run `docker compose up -d --wait`,
+then follow steps 2–5.

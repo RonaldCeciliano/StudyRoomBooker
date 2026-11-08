@@ -18,7 +18,7 @@ Last updated: 2026-11-07.
 | Notification outbox, scheduler, booking reminders | PR #61 |
 | CI, templates, this board | PR for #30 |
 | Production Compose, Caddy, health checks | PR for #47 |
-| PostgreSQL backups (#48) | Not started |
+| PostgreSQL backups (daily dump, rotation, restore steps) | PR for #48; off-box bucket needs Oracle access |
 | Ops: project Gmail (#49), DuckDNS (#50), library contact (#51) | Needs a person |
 
 PRs #55–#61 are stacked; merge them in order so each retargets to `main`.
@@ -37,7 +37,7 @@ PRs #55–#61 are stacked; merge them in order so each retargets to `main`.
 1. Merge the stacked PRs (#55 → #61) and this CI PR.
 2. Deploy with `docker-compose.yml` (#47, see docs/deployment.md) once #49/#50 provide
    Gmail credentials and a hostname.
-3. PostgreSQL backups (#48).
+3. Create the Oracle Object Storage bucket and the rclone sync for backups (#48 follow-up).
 4. Ops tickets (#49–#51), then a real Gmail delivery test.
 5. MISSED handling and action-token email links.
 
