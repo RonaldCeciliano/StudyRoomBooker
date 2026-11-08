@@ -25,7 +25,7 @@ PRs #55–#61 are stacked; merge them in order so each retargets to `main`.
 
 ## Open questions
 
-- When should an unbooked shift become MISSED, and who is alerted? (Follow-up from #45.)
+- MISSED now happens when an unbooked shift ends. Should anyone be alerted earlier (NUDGE/GROUP_ALERT), and should MISSED count toward fairness (#53 says no)?
 - Exact time LibCal opens a date 14 days ahead (midnight vs. matching time). Reminders
   currently go out at the start of the day and say to retry later that day (ADR 0005).
 - Member invitation/management: members are still inserted directly in the database.
@@ -39,7 +39,7 @@ PRs #55–#61 are stacked; merge them in order so each retargets to `main`.
    Gmail credentials and a hostname.
 3. Create the Oracle Object Storage bucket and the rclone sync for backups (#48 follow-up).
 4. Ops tickets (#49–#51), then a real Gmail delivery test.
-5. MISSED handling and action-token email links.
+5. Action-token email links; alerts for shifts about to be missed.
 
 ## Decision log
 
