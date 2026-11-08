@@ -24,15 +24,31 @@ repository root; `.dockerignore` keeps `node_modules`, `target`, `.git`, and `.e
 
 ## First deploy
 
-On the VM, with Docker and the Compose plugin installed and ports 80/443 open:
+1. In the Oracle console, create an Ubuntu VM (Always Free; Ampere A1 / ARM64 is fine) and
+   add **ingress rules for TCP 80 and 443** (and UDP 443 for HTTP/3) to its VCN security list.
+2. Point the hostname (#50, e.g. DuckDNS) at the VM's public IP.
+3. SSH in and run the setup script, passing the hostname:
 
-```sh
-git clone https://github.com/RonaldCeciliano/StudyRoomBooker.git
-cd StudyRoomBooker
-cp .env.example .env      # then edit every value; .env is git-ignored
-chmod 600 .env
-docker compose up -d --build --wait
-```
+   ```sh
+   curl -fsSL https://raw.githubusercontent.com/RonaldCeciliano/StudyRoomBooker/main/infra/vm/setup.sh -o setup.sh
+   bash setup.sh studyroombooker.duckdns.org
+   ```
+
+   [`infra/vm/setup.sh`](../infra/vm/setup.sh) installs Docker and the Compose plugin, opens
+   80/443 in the VM's own iptables firewall (Oracle's Ubuntu image rejects them by default),
+   clones the repository to `~/StudyRoomBooker`, and creates a `chmod 600` `.env` with a
+   random database password and the hostname filled in. It is safe to re-run.
+4. Log out and back in (so the `docker` group applies), put the Gmail values (#49) in
+   `~/StudyRoomBooker/.env`, then start the stack:
+
+   ```sh
+   cd ~/StudyRoomBooker
+   docker compose up -d --build --wait
+   ```
+
+Without the script, the manual equivalent is: install Docker and the Compose plugin, open
+the ports, `git clone` the repository, `cp .env.example .env`, edit every value,
+`chmod 600 .env`, and run the same `docker compose` command.
 
 `.env` values (the committed `.env.example` holds fake ones only):
 
