@@ -85,6 +85,28 @@ services:
       - ${BACKUP_HOST_DIR:-./backups}:/backups
     logging: *logging
 
+  # Optional off-box copy of the dumps to S3-compatible object storage (Oracle Object
+  # Storage). Off unless COMPOSE_PROFILES=offsite is set in .env with the OFFSITE_* values.
+  offsite:
+    image: rclone/rclone:1.68.2
+    profiles: ["offsite"]
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/offsite.sh"]
+    # `docker compose run --rm offsite once` (or `check`) replaces this.
+    command: ["loop"]
+    environment:
+      TZ: America/Chicago
+      OFFSITE_ENDPOINT: ${OFFSITE_ENDPOINT:-}
+      OFFSITE_REGION: ${OFFSITE_REGION:-}
+      OFFSITE_BUCKET: ${OFFSITE_BUCKET:-}
+      OFFSITE_ACCESS_KEY_ID: ${OFFSITE_ACCESS_KEY_ID:-}
+      OFFSITE_SECRET_ACCESS_KEY: ${OFFSITE_SECRET_ACCESS_KEY:-}
+      OFFSITE_RETENTION_DAYS: ${OFFSITE_RETENTION_DAYS:-30}
+    volumes:
+      - ./infra/backup/offsite.sh:/offsite.sh:ro
+      - ${BACKUP_HOST_DIR:-./backups}:/backups:ro
+    logging: *logging
+
 volumes:
   postgres-data:
   caddy-data:

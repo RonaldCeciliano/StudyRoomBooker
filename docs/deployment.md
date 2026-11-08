@@ -134,20 +134,34 @@ docker compose exec backup /bin/sh /backup.sh once
 
 ### Off-box copy
 
-A host directory still lives on the same VM. Copy it off the box. The plan is Oracle Object
-Storage through its S3-compatible API, for example with [rclone](https://rclone.org/) and a
-customer secret key, from the host's crontab:
+A host directory still lives on the same VM, so the optional `offsite` service
+([`infra/backup/offsite.sh`](../infra/backup/offsite.sh), using the `rclone/rclone` image)
+copies the dumps to S3-compatible object storage. The plan is Oracle Object Storage
+through its S3-compatible API. It is off until you enable it:
 
-```sh
-# crontab -e on the VM: sync dumps at 04:30 every day
-30 4 * * * rclone sync /home/ubuntu/StudyRoomBooker/backups oci:studyroombooker-backups --max-age 15d
-```
+1. In the Oracle console (needs Ronald's access): create a private bucket, e.g.
+   `studyroombooker-backups`, and note the tenancy's **Object Storage namespace** and the
+   region. Under your user profile, create a **Customer secret key**; its access key and
+   secret are the S3 credentials.
+2. Uncomment and fill in the `OFFSITE_*` lines and `COMPOSE_PROFILES=offsite` in `.env`.
+   The endpoint is `https://<namespace>.compat.objectstorage.<region>.oraclecloud.com`.
+3. Verify the credentials, push the existing dumps, and start the service:
 
-Creating the bucket and keys needs Ronald's Oracle access. Keep rclone credentials in the
-VM's `~/.config/rclone/rclone.conf`, never in Git. **Verify the current Always Free Object
-Storage allowance in the Oracle console before relying on it.** The total is believed to be
-around 20 GB, but this has not been verified. Daily dumps of this database are tens of
-kilobytes to a few megabytes, so 14 days fits easily.
+   ```sh
+   docker compose run --rm offsite check
+   docker compose run --rm offsite once
+   docker compose up -d --wait
+   ```
+
+Every 6 hours (`OFFSITE_INTERVAL`, starting 10 minutes after start) it uploads new dumps
+with `rclone copy` and deletes remote dumps older than `OFFSITE_RETENTION_DAYS` (default
+30). It never uses `rclone sync`, so a wiped local `backups/` directory cannot delete the
+remote copies. Check it with `docker compose logs offsite`. The keys live only in `.env`.
+
+**Verify the current Always Free Object Storage allowance in the Oracle console before
+relying on it.** The total is believed to be around 20 GB, but this has not been verified.
+Daily dumps of this database are tens of kilobytes to a few megabytes, so 30 days fits
+easily.
 
 ### Restore
 
@@ -170,6 +184,11 @@ kilobytes to a few megabytes, so 14 days fits easily.
 5. Start the app: `docker compose start backend caddy`. Flyway applies any newer
    migrations. Users must sign in again, because sessions are not stored in the database.
 
-To restore on a new VM, copy the dump into its `backups/` directory first (for example
-`rclone copy oci:studyroombooker-backups/<file> backups/`), run `docker compose up -d --wait`,
+To restore on a new VM, run `docker compose up -d --wait`, then copy a dump from the
+bucket into `backups/` (`docker compose run --rm offsite check` lists them):
+
+```sh
+docker compose run --rm -v "$PWD/backups:/restore" offsite fetch studyroombooker-YYYY-MM-DDTHHMMSS.dump
+```
+
 then follow steps 2–5.

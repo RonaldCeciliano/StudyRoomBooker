@@ -17,7 +17,7 @@ Last updated: 2026-11-07.
 | CI, templates, this board | Merged (#75) |
 | Production Compose, Caddy, health checks, daily backups | Merged (#76, #77) |
 | Remaining planning endpoints, MISSED marking, emailed "I booked it" links | Merged (#78, #79, #80) |
-| Off-box backup copy | Needs an Oracle bucket and keys |
+| Off-box backup copy (`offsite` Compose service) | Built; needs an Oracle bucket and keys in `.env` |
 | Ops: project Gmail (#49), DuckDNS (#50), library contact (#51) | Needs a person |
 | Required CI status check on `main` | Needs repository admin (Ronald) |
 
@@ -33,7 +33,7 @@ Last updated: 2026-11-07.
 
 1. Deploy with `docker-compose.yml` (#47, see docs/deployment.md) once #49/#50 provide
    Gmail credentials and a hostname.
-2. Create the Oracle Object Storage bucket and the rclone sync for backups (#48 follow-up).
+2. Create the Oracle Object Storage bucket and keys, then enable the `offsite` service (docs/deployment.md).
 3. Ops tickets (#49–#51), then a real Gmail delivery test.
 4. Alerts for shifts about to be missed; member invitation UI.
 

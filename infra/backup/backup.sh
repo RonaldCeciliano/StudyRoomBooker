@@ -20,9 +20,11 @@ backup_once() {
     final="$BACKUP_DIR/studyroombooker-$stamp.dump"
     partial="$BACKUP_DIR/.studyroombooker-$stamp.dump.partial"
     trap 'rm -f "$partial"' EXIT
-    pg_dump --host="$DB_HOST" --dbname="$DB_NAME" --format=custom --compress=9 --no-owner --file="$partial"
-    pg_restore --list "$partial" >/dev/null
-    mv "$partial" "$final"
+    # Explicit returns: set -e is ignored inside a function called as `backup_once || ...`,
+    # so without them a failed dump would still be renamed into place.
+    pg_dump --host="$DB_HOST" --dbname="$DB_NAME" --format=custom --compress=9 --no-owner --file="$partial" || { rm -f "$partial"; return 1; }
+    pg_restore --list "$partial" >/dev/null || { rm -f "$partial"; return 1; }
+    mv "$partial" "$final" || { rm -f "$partial"; return 1; }
     trap - EXIT
     echo "backup: wrote $final ($(du -h "$final" | cut -f1))"
     # Rotation: keep BACKUP_RETENTION_DAYS days of daily dumps.
