@@ -1,6 +1,6 @@
 # StudyRoomBooker
 
-StudyRoomBooker is a planned collaborative web application for coordinating University of Arkansas Mullins Library study-room reservations.
+StudyRoomBooker is a collaborative web application for coordinating University of Arkansas Mullins Library study-room reservations.
 
 ## Phase 1 goal
 
@@ -10,30 +10,31 @@ A possible Phase 2 Chrome extension depends on University Libraries approval. It
 
 ## Current status
 
-**Phase 1 features are implemented across stacked pull requests #55–#61; deployment is next.**
+**Phase 1 is implemented and merged to `main` (#68–#80); deployment is next.**
 Members sign in with a magic link, plan study blocks, set their unavailability, and see a
 dashboard of shifts. Shifts are split and fairly assigned automatically; owners can mark
-them booked or release them. A scheduler emails booking reminders when a date enters
-LibCal's 14-day window. Production deployment (Compose, Caddy, backups) and the ops tickets
-remain. See [docs/memory.md](docs/memory.md) for the live board and the backend and
+them booked (from the dashboard or an emailed "I booked it" link) or release them. A
+scheduler emails booking reminders when a date enters LibCal's 14-day window and marks
+unbooked shifts MISSED once they end. The production stack (Compose, Caddy, daily backups)
+is ready; what remains needs people: the ops tickets (#49–#51) and the Oracle VM. See [docs/memory.md](docs/memory.md) for the live board and the backend and
 frontend READMEs for local startup.
 
 The target operating cost is **$0**.
 
-## Planned technology stack
+## Technology stack
 
 | Area | Technologies |
 | --- | --- |
-| Backend | Java 21, Spring Boot, Spring REST, Spring Security, Spring Data JPA, Hibernate, Maven, Spring Scheduler, springdoc-openapi |
+| Backend | Java 21, Spring Boot, Spring REST, Spring Security, JDBC (`JdbcTemplate`), Maven, Spring Scheduler, springdoc-openapi |
 | Frontend | React, TypeScript, Vite, TanStack Query, openapi-typescript |
 | Database | PostgreSQL, Flyway |
 | Testing | JUnit, Mockito, Testcontainers, Vitest, React Testing Library, MSW |
-| Infrastructure | Docker, Docker Compose, Caddy, GitHub Actions; planned Oracle Cloud VM |
+| Infrastructure | Docker, Docker Compose, Caddy, GitHub Actions; Oracle Cloud VM (planned) |
 | Email | EmailSender interface, Gmail SMTP, LoggingEmailSender for development |
 
 ## High-level architecture
 
-The application will begin as a modular monolith. Caddy will provide HTTPS and same-origin routing.
+The application is a modular monolith. Caddy provides HTTPS and same-origin routing.
 
 ```text
 Internet -> Caddy -> React frontend
