@@ -3,11 +3,13 @@
 `POST /api/shifts/{id}/release` atomically releases an owned future ASSIGNED shift
 and attempts reassignment, excluding the releasing member for this attempt only.
 It returns 204 with no body; refresh the shift list to read the outcome. The release
-operation requires a trusted authenticated principal. The session security scheme
-is documented for the planned authentication integration; ordinary requests currently
-return 401 because no sign-in flow is implemented. Test-only principals exercise the
-successful HTTP path without introducing production identity headers. See the backend
-README for ownership, state, error, and concurrency behavior.
+operation requires a magic-link session. See the backend README for ownership, state,
+error, and concurrency behavior.
+
+Authentication (ADR 0001): `GET /api/session` (public) reports the session and sets the
+`XSRF-TOKEN` cookie; `POST /ott/generate`, `POST /login/ott`, and `POST /logout` use
+form bodies. Every write must send `X-XSRF-TOKEN`. Every other `/api` route requires a
+session (401 otherwise). The backend README documents the full flow.
 
 `POST /api/study-blocks` atomically creates a one-time study block, splits it into
 shifts, and assigns eligible active members. Shifts without eligible members stay
@@ -29,8 +31,8 @@ Statuses are UNASSIGNED, ASSIGNED, BOOKED, MISSED, and CANCELLED.
 BOOKED is group tracking based on user confirmation, not independent LibCal proof.
 Examples match the existing MSW fixtures. Server errors include a representative
 500; the default error response describes other unsuccessful responses as
-`application/problem+json`. No authentication implementation or error extensions
-are introduced. The five existing ProblemDetail fields remain optional.
+`application/problem+json`. No error extensions are introduced. The five existing
+ProblemDetail fields remain optional.
 
 ## Generate and verify
 
@@ -57,7 +59,7 @@ the application retains TypeScript 6. `api:check` detects stale generated output
 without rewriting it. Commit the specification and generated schema.ts together.
 Never edit generated types by hand. These are static types, not runtime validators.
 The minimal Redocly rules validate the document and examples. Security declaration
-linting is disabled because authentication is explicitly outside this initial scope.
+linting stays disabled because the public auth endpoints intentionally declare none.
 
 ## Backend documentation
 

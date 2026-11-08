@@ -4,6 +4,83 @@
  */
 
 export interface paths {
+    "/api/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Current session and CSRF cookie
+         * @description Public. Reports whether the caller is signed in and sets the XSRF-TOKEN cookie that writes must echo in the X-XSRF-TOKEN header. Call it on app start before any POST.
+         */
+        get: operations["getSession"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ott/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email a one-time sign-in link
+         * @description Always returns 204 with no body, whether or not the email belongs to an active member, so responses never confirm membership. Active members get an email (at most one per minute) with a link to the /login/magic page, valid once for 15 minutes. Opening the link never signs in.
+         */
+        post: operations["requestMagicLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/login/ott": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Consume a magic-link token and start a session
+         * @description Called when the member presses Continue on the confirmation page; GET requests never consume tokens. Tokens are single use and expire after 15 minutes. Success sets an HttpOnly, SameSite=Lax session cookie (Secure in production) and rotates the XSRF-TOKEN cookie; read it again before the next write.
+         */
+        post: operations["signInWithMagicLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End the current session */
+        post: operations["signOut"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/shifts/{id}/release": {
         parameters: {
             query?: never;
@@ -15,7 +92,7 @@ export interface paths {
         put?: never;
         /**
          * Release the current member's future unbooked assignment
-         * @description Requires a trusted authenticated server principal whose name is the active member's email. The current application has no sign-in flow yet, so normal unauthenticated requests return 401. Client-provided member IDs, email headers, and request bodies never establish identity. Only the owner of a future ASSIGNED shift may release it; BOOKED shifts are not released and no LibCal cancellation is performed. Release and immediate reassignment are atomic. The releasing member is excluded only from this immediate attempt; all other eligibility and weekly fairness rules still apply. When no replacement is eligible the shift remains UNASSIGNED. Repeating a release after ownership changes is rejected without affecting the new owner. After success, refresh GET /api/shifts for the resulting assignment.
+         * @description Requires a magic-link session whose principal is the active member's email; requests without one return 401. Client-provided member IDs, email headers, and request bodies never establish identity. Only the owner of a future ASSIGNED shift may release it; BOOKED shifts are not released and no LibCal cancellation is performed. Release and immediate reassignment are atomic. The releasing member is excluded only from this immediate attempt; all other eligibility and weekly fairness rules still apply. When no replacement is eligible the shift remains UNASSIGNED. Repeating a release after ownership changes is rejected without affecting the new owner. After success, refresh GET /api/shifts for the resulting assignment.
          */
         post: operations["releaseShift"];
         delete?: never;
@@ -68,6 +145,13 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        Session: {
+            authenticated: boolean;
+            /** @description The signed-in member's primary email; null when signed out. */
+            email: string | null;
+            /** @description The signed-in member's display name; null when signed out. */
+            name: string | null;
+        };
         CreateStudyBlock: {
             /** Format: date */
             date: string;
@@ -124,14 +208,136 @@ export interface components {
             instance?: string;
         };
     };
-    responses: never;
-    parameters: never;
+    responses: {
+        /** @description Missing or mismatched X-XSRF-TOKEN header. */
+        CsrfRejected: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetail"];
+            };
+        };
+    };
+    parameters: {
+        /** @description Value of the XSRF-TOKEN cookie (set by GET /api/session). */
+        CsrfHeader: string;
+    };
     requestBodies: never;
     headers: never;
     pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session state. Signed-out callers get authenticated false and null fields. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+        };
+    };
+    requestMagicLink: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Value of the XSRF-TOKEN cookie (set by GET /api/session). */
+                "X-XSRF-TOKEN": components["parameters"]["CsrfHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": {
+                    /** @description Member email address (case-insensitive). */
+                    username: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Request accepted. No body; membership is not disclosed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["CsrfRejected"];
+        };
+    };
+    signInWithMagicLink: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Value of the XSRF-TOKEN cookie (set by GET /api/session). */
+                "X-XSRF-TOKEN": components["parameters"]["CsrfHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": {
+                    /** @description The token query parameter from the emailed link. */
+                    token: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Signed in. No body. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Token is invalid, expired, already used, or belongs to an inactive member. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            403: components["responses"]["CsrfRejected"];
+        };
+    };
+    signOut: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Value of the XSRF-TOKEN cookie (set by GET /api/session). */
+                "X-XSRF-TOKEN": components["parameters"]["CsrfHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed out (also when no session existed). No body. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["CsrfRejected"];
+        };
+    };
     releaseShift: {
         parameters: {
             query?: never;
@@ -273,7 +479,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Other unsuccessful responses use ProblemDetail. Authentication behavior is outside this contract's initial scope. */
+            /** @description Other unsuccessful responses use ProblemDetail, including 401 without a member session. */
             default: {
                 headers: {
                     [name: string]: unknown;

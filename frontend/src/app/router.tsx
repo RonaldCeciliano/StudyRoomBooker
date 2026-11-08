@@ -1,4 +1,7 @@
 import { createBrowserRouter, type RouteObject } from 'react-router'
+import { LoginPage } from '../features/auth/LoginPage'
+import { MagicLinkPage } from '../features/auth/MagicLinkPage'
+import { RequireSession } from '../features/auth/RequireSession'
 import { DashboardPage } from '../features/dashboard/DashboardPage'
 import { ErrorPage } from './ErrorPage'
 import { Layout } from './Layout'
@@ -12,7 +15,16 @@ export const routes: RouteObject[] = [
         // Errors render inside the layout so the navigation bar stays available.
         errorElement: <ErrorPage />,
         children: [
-          { index: true, element: <DashboardPage /> },
+          {
+            index: true,
+            element: (
+              <RequireSession>
+                <DashboardPage />
+              </RequireSession>
+            ),
+          },
+          { path: 'login', element: <LoginPage /> },
+          { path: 'login/magic', element: <MagicLinkPage /> },
           { path: '*', element: <NotFoundPage /> },
         ],
       },

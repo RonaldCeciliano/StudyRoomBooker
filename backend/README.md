@@ -109,7 +109,7 @@ The normal test/default profiles load only the core schema, without fixtures.
 
 `GET /api/shifts` returns all stored shifts as a JSON array, ordered by start time
 then ID, with UTC timestamps, planned room code, and nullable member name. It does
-not filter to upcoming shifts. Authentication is still pending. Database read
+not filter to upcoming shifts. It requires a member session (401 otherwise). Database read
 failures return a generic 500 ProblemDetail without exposing database details.
 
 ## Create a study block
@@ -213,13 +213,11 @@ concurrent retries cannot release the replacement owner's shift. The exclusion i
 not stored and does not bar future assignments on other days (or future independent
 assignment attempts). Refresh `GET /api/shifts` after success to see the new owner.
 
-Authentication is still pending. Ordinary development/browser requests return 401;
-there is no release button or usable sign-in flow yet. The future magic-link/session
-implementation must populate the trusted principal with the member's primary email
-and enable session/CSRF protection for mutating endpoints. Do not substitute request
-headers, query parameters, or JSON identity for that principal. HTTP tests provide a
-principal through a filter defined only in `src/test`; a separate test without that
-filter proves that forged identity headers/body do not authenticate real requests.
+The principal comes from the magic-link session (see Authentication below) and is
+the member's primary email. Do not substitute request headers, query parameters, or
+JSON identity for that principal. HTTP tests sign in through the real `/login/ott`
+flow (`TestHttp`); a separate test proves forged identity headers/body do not
+authenticate. A member deactivated after signing in gets 401 on the next request.
 
 Tests exercise successful replacement, no eligible replacement, ownership/state/time
 checks, unchanged booking data, immediate-only exclusion, unchanged unrelated shifts,
@@ -263,3 +261,47 @@ Startup under `prod` fails if the username, password, or from address is blank, 
 than failing on the first send. SMTP timeouts are 10 seconds. The mail health check is
 disabled so `/actuator/health` does not depend on Gmail availability. Delivery errors
 are wrapped in `EmailDeliveryException`.
+
+
+## Authentication
+
+Active members sign in with a magic link (ADR 0001); there are no passwords.
+
+1. The React app calls `GET /api/session` (public). It reports `authenticated`, `email`,
+   and `name`, and sets the `XSRF-TOKEN` cookie.
+2. `POST /ott/generate` with form field `username=<email>` always returns 204 with no
+   body. Only active members (matched case-insensitively) get a token and an email,
+   at most one per 60 seconds per member. The email is sent off the request thread,
+   so neither the response nor its timing reveals membership.
+3. The email links to `${APP_BASE_URL}/login/magic?token=...`, a React page that shows
+   **Continue**. Opening the link (GET) never consumes the token; the backend has no GET
+   sign-in handler at all, so email scanners such as Safe Links are harmless.
+4. Continue sends `POST /login/ott` with form field `token`. Success returns 204 and
+   starts a session; an invalid, expired (15 minutes), reused, or inactive-member
+   token returns 401 ProblemDetail.
+5. `POST /logout` returns 204 and ends the session.
+
+Tokens are 32 random bytes (base64url). Only their SHA-256 hash is stored in
+`login_token` (Flyway `V2`); consuming deletes the row atomically, so concurrent
+submits cannot both succeed. Expired rows are deleted on the next request for a link.
+
+Every `/api/**` route except `GET /api/session` requires a session; missing sessions
+get 401 ProblemDetail rather than a redirect. All POST/PUT/DELETE requests need the
+`X-XSRF-TOKEN` header echoing the `XSRF-TOKEN` cookie (403 otherwise); Spring Security
+rotates it on sign-in. Session cookies are `HttpOnly` and `SameSite=Lax`, plus `Secure`
+under `prod`, and last 7 days. Sessions live in memory, so a backend restart signs
+everyone out. A member deactivated after sign-in loses the session on the next request.
+
+| Property | Env var | Default |
+|---|---|---|
+| `app.base-url` | `APP_BASE_URL` | `http://localhost:5173` (required under `prod`) |
+| `app.auth.login-token-ttl` | — | `15m` |
+| `app.auth.resend-cooldown` | — | `60s` |
+
+**Local sign-in:** under `dev`, `LoggingEmailSender` writes the magic link to the
+backend log. Request a link for a dev-seed member (for example `genaro@example.test`)
+from `http://localhost:5173/login`, copy the link from the log, and press Continue.
+
+Not implemented: rate limiting by IP, member invitation/management UI, and persistent
+(JDBC) sessions.
+

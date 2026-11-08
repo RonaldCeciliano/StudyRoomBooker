@@ -44,6 +44,13 @@
     transform var(--duration) var(--ease-spring);
 }
 
+.nav-button {
+  border: 0;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+
 .nav-pill:hover {
   background: var(--glass-hover);
 }
