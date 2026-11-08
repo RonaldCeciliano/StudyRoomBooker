@@ -1,0 +1,13 @@
+# Build contexts use the repository root; send only what the images need.
+.git
+**/node_modules
+**/target
+**/dist
+**/.vite
+**/coverage
+.env
+.env.*
+!.env.example
+.idea
+.vscode
+.cursor

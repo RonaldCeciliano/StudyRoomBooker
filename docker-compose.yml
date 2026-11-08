@@ -1,0 +1,73 @@
+# Production stack: Caddy (HTTPS + static React) -> Spring Boot -> PostgreSQL.
+# Configure with a .env file next to this one (copy .env.example). See docs/deployment.md.
+# All images are multi-arch; nothing pins a CPU architecture (the planned VM is ARM64).
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "5"
+
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: studyroombooker
+      POSTGRES_USER: ${DB_USERNAME:?set DB_USERNAME in .env}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      TZ: America/Chicago
+    command: ["postgres", "-c", "timezone=America/Chicago"]
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    # No published port: only the backend reaches the database.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *logging
+
+  backend:
+    build:
+      context: .
+      dockerfile: infra/backend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:postgresql://db:5432/studyroombooker
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      APP_BASE_URL: ${APP_BASE_URL:?set APP_BASE_URL in .env}
+      SMTP_USERNAME: ${SMTP_USERNAME:?set SMTP_USERNAME in .env}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:?set SMTP_PASSWORD in .env}
+      EMAIL_FROM: ${EMAIL_FROM:-${SMTP_USERNAME}}
+    # The Dockerfile HEALTHCHECK polls /actuator/health; Caddy waits for it.
+    logging: *logging
+
+  caddy:
+    build:
+      context: .
+      dockerfile: infra/caddy/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    logging: *logging
+
+volumes:
+  postgres-data:
+  caddy-data:
+  caddy-config:

@@ -1,0 +1,35 @@
+# Same-origin routing (ARCHITECTURE.md High-Level Architecture): the API and sign-in
+# endpoints go to Spring Boot; everything else is the React app. SITE_ADDRESS is the public
+# hostname (for example studyroombooker.duckdns.org); Caddy obtains HTTPS certificates for it.
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		# The magic-link page URL carries the sign-in token; never send it to LibCal or others.
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	@backend path /api/* /ott/generate /login/ott /logout
+	handle @backend {
+		reverse_proxy backend:8080
+	}
+
+	handle {
+		root * /srv
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		header /index.html Cache-Control "no-cache"
+		# Client-side routes such as /login/magic fall back to the SPA.
+		try_files {path} /index.html
+		file_server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

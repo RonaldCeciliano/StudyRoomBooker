@@ -57,9 +57,16 @@ class SmtpEmailSenderTests {
     }
 
     @Test
-    void requiresCredentialsAndFromAddress() {
-        assertThatThrownBy(() -> sender(mock(JavaMailSender.class), " "))
-            .isInstanceOf(IllegalStateException.class);
+    void blankFromAddressFallsBackToTheUsername() {
+        JavaMailSender mailSender = mock(JavaMailSender.class);
+        sender(mailSender, " ").send(MESSAGE);
+        var captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender).send(captor.capture());
+        assertThat(captor.getValue().getFrom()).isEqualTo("fake-user@example.test");
+    }
+
+    @Test
+    void requiresCredentials() {
         assertThatThrownBy(() -> new SmtpEmailSender(mock(JavaMailSender.class), "", "fake-app-password", "group@example.test"))
             .isInstanceOf(IllegalStateException.class);
         assertThatThrownBy(() -> new SmtpEmailSender(mock(JavaMailSender.class), "fake-user@example.test", "", "group@example.test"))

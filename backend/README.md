@@ -257,7 +257,8 @@ export SMTP_PASSWORD=abcd-efgh-ijkl-mnop
 export EMAIL_FROM=studyroombooker.example@gmail.com
 ```
 
-Startup under `prod` fails if the username, password, or from address is blank, rather
+Startup under `prod` fails if the username or password is blank (a blank `EMAIL_FROM`
+falls back to `SMTP_USERNAME`), rather
 than failing on the first send. SMTP timeouts are 10 seconds. The mail health check is
 disabled so `/actuator/health` does not depend on Gmail availability. Delivery errors
 are wrapped in `EmailDeliveryException`.

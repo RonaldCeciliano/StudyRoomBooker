@@ -17,7 +17,8 @@ Last updated: 2026-11-07.
 | Member unavailability page | PR #60 |
 | Notification outbox, scheduler, booking reminders | PR #61 |
 | CI, templates, this board | PR for #30 |
-| Production Compose, Caddy, health checks (#47), backups (#48) | Not started |
+| Production Compose, Caddy, health checks | PR for #47 |
+| PostgreSQL backups (#48) | Not started |
 | Ops: project Gmail (#49), DuckDNS (#50), library contact (#51) | Needs a person |
 
 PRs #55–#61 are stacked; merge them in order so each retargets to `main`.
@@ -34,9 +35,8 @@ PRs #55–#61 are stacked; merge them in order so each retargets to `main`.
 ## Roadmap
 
 1. Merge the stacked PRs (#55 → #61) and this CI PR.
-2. Production Docker Compose + Caddy (#47): route `/api`, `/ott/generate`, `/login/ott`,
-   `/logout` to Spring Boot; everything else to the built frontend. Set `APP_BASE_URL`,
-   `SMTP_*`, and `prod` profile.
+2. Deploy with `docker-compose.yml` (#47, see docs/deployment.md) once #49/#50 provide
+   Gmail credentials and a hostname.
 3. PostgreSQL backups (#48).
 4. Ops tickets (#49–#51), then a real Gmail delivery test.
 5. MISSED handling and action-token email links.
