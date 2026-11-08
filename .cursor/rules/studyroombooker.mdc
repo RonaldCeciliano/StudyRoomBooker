@@ -1,0 +1,10 @@
+---
+description: StudyRoomBooker contributor rules
+alwaysApply: true
+---
+
+Follow AGENTS.md at the repository root: its commands, merge process, and standing rules
+(contract-first OpenAPI, America/Chicago time with an injected Clock, session-principal
+identity, CSRF on writes, no LibCal deep links, fake data only). ARCHITECTURE.md is the
+source of truth for scope; docs/memory.md is the living status board. Run
+`cd frontend && npm run check` and `cd backend && ./mvnw test` before opening a PR.
