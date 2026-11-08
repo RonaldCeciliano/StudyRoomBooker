@@ -10,9 +10,13 @@ A possible Phase 2 Chrome extension depends on University Libraries approval. It
 
 ## Current status
 
-**Milestone 0 foundation is in progress.** The React dashboard reads shifts from a PostgreSQL-backed Spring Boot API. Flyway creates the planning schema; the development profile adds fictional sample data.
-
-The backend supports one-time study-block creation, even shift generation, and fair member assignment based on availability and weekly workload. The backend also supports owner-only release and immediate reassignment; its HTTP endpoint requires a trusted authenticated principal, pending sign-in implementation. The planning UI, authentication, notifications, and production deployment remain to be implemented. See the backend and frontend READMEs for local startup commands.
+**Phase 1 features are implemented across stacked pull requests #55–#61; deployment is next.**
+Members sign in with a magic link, plan study blocks, set their unavailability, and see a
+dashboard of shifts. Shifts are split and fairly assigned automatically; owners can mark
+them booked or release them. A scheduler emails booking reminders when a date enters
+LibCal's 14-day window. Production deployment (Compose, Caddy, backups) and the ops tickets
+remain. See [docs/memory.md](docs/memory.md) for the live board and the backend and
+frontend READMEs for local startup.
 
 The target operating cost is **$0**.
 
@@ -46,14 +50,16 @@ Backend business logic belongs in services, using controller, service, and repos
 
 ## Collaboration workflow
 
-1. Review the current milestone and create an issue.
-2. Create a feature branch, such as `feature/study-blocks`.
-3. Implement the scoped change and test it.
-4. Push the branch and open a pull request.
-5. Have the other developer review it.
-6. Merge after required CI checks pass.
+See [AGENTS.md](AGENTS.md) for commands and standing rules.
 
-Avoid unrelated changes directly on `main`. Create application directories and configuration incrementally as their milestones begin. Keep secrets out of Git and use only fake development credentials and data.
+1. Pick an issue from [docs/memory.md](docs/memory.md) or the issue list.
+2. Branch from the latest `main`: `feature/<issue>-<short-name>`.
+3. Implement and test: `cd frontend && npm run check`, `cd backend && ./mvnw test`.
+4. Push and open a pull request with `Fixes #<n>` and a test plan.
+5. The other developer reviews; CI must pass before merging.
+
+Avoid unrelated changes directly on `main`. Keep secrets out of Git and use only fake
+development credentials and data.
 
 ## Team
 
