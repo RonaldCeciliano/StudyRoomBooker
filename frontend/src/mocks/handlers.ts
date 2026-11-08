@@ -1,5 +1,6 @@
 import { http, HttpResponse } from 'msw'
-import { mockRooms, shifts, studyBlocks } from './data'
+import { mockRooms, shifts, studyBlocks, unavailability } from './data'
+import type { Unavailability, UnavailabilityInput } from '../features/availability/api'
 import type { StudyBlock, StudyBlockInput } from '../features/study-blocks/api'
 import { mockSession, VALID_MAGIC_TOKEN } from './session'
 
@@ -80,6 +81,32 @@ export const handlers = [
     if (invalid) return problem(400, 'Bad Request', invalid)
     studyBlocks[index] = { ...toBlock(input), id: studyBlocks[index].id }
     return HttpResponse.json(studyBlocks[index])
+  }),
+  http.get('/api/me/unavailability', () =>
+    mockSession.current.authenticated ? HttpResponse.json(unavailability) : unauthorized(),
+  ),
+  http.post('/api/me/unavailability', async ({ request }) => {
+    const input = (await request.json()) as UnavailabilityInput
+    if (input.endTime <= input.startTime) return problem(400, 'Bad Request', 'endTime must be after startTime')
+    if (input.kind === 'ONE_TIME' && !input.date) return problem(400, 'Bad Request', 'date is required for one-time unavailability')
+    const entry: Unavailability = {
+      id: Math.max(0, ...unavailability.map((u) => u.id)) + 1,
+      kind: input.kind,
+      date: input.kind === 'ONE_TIME' ? input.date ?? null : null,
+      weekday: input.kind === 'WEEKLY' ? input.weekday ?? null : null,
+      validFrom: input.kind === 'WEEKLY' ? input.validFrom ?? '2026-11-05' : null,
+      validUntil: input.kind === 'WEEKLY' ? input.validUntil ?? null : null,
+      startTime: input.startTime,
+      endTime: input.endTime,
+    }
+    unavailability.push(entry)
+    return HttpResponse.json(entry, { status: 201 })
+  }),
+  http.delete('/api/me/unavailability/:id', ({ params }) => {
+    const index = unavailability.findIndex((u) => u.id === Number(params.id))
+    if (index < 0) return problem(404, 'Not Found', 'Unavailability not found')
+    unavailability.splice(index, 1)
+    return new HttpResponse(null, { status: 204 })
   }),
   http.post('/api/shifts/:id/release', ({ params }) => {
     const shift = shifts.find((s) => s.id === Number(params.id))

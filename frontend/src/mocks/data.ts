@@ -1,4 +1,5 @@
 import type { Shift } from '../features/shifts/api'
+import type { Unavailability } from '../features/availability/api'
 import type { Room, StudyBlock } from '../features/study-blocks/api'
 
 // Fake development data. Times are UTC instants; the UI shows them in America/Chicago.
@@ -61,11 +62,18 @@ export const initialStudyBlocks: StudyBlock[] = [
   },
 ]
 
+export const initialUnavailability: Unavailability[] = [
+  { id: 1, kind: 'ONE_TIME', date: '2026-11-10', weekday: null, validFrom: null, validUntil: null, startTime: '09:00', endTime: '12:30' },
+  { id: 2, kind: 'WEEKLY', date: null, weekday: 2, validFrom: '2026-11-05', validUntil: null, startTime: '18:00', endTime: '24:00' },
+]
+
 /** Mutable copies that mock write handlers change; reset between tests. */
 export let shifts: Shift[] = structuredClone(initialShifts)
 export let studyBlocks: StudyBlock[] = structuredClone(initialStudyBlocks)
+export let unavailability: Unavailability[] = structuredClone(initialUnavailability)
 
 export function resetShifts() {
   shifts = structuredClone(initialShifts)
   studyBlocks = structuredClone(initialStudyBlocks)
+  unavailability = structuredClone(initialUnavailability)
 }
