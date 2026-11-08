@@ -44,6 +44,11 @@ public class AssignmentRepository {
             (row, index) -> row.getLong(1));
     }
 
+    /** ASSIGNED shifts that ended without being marked booked become MISSED. */
+    public int markMissed(Instant now) {
+        return jdbc.update("UPDATE shift SET status = 'MISSED' WHERE status = 'ASSIGNED' AND ends_at <= ?", utc(now));
+    }
+
     public Optional<PendingShift> pendingShift(long shiftId, Instant now) {
         return jdbc.query("""
             SELECT id, starts_at, ends_at, local_date FROM shift

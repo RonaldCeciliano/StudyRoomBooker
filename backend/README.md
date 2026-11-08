@@ -393,7 +393,11 @@ Delivery is at-least-once: if the process stops after the mail server accepts a 
 before the row is marked `SENT`, the next run can send it again. One backend instance is
 assumed; consider ShedLock if more are added (the outbox itself stays duplicate-safe).
 Tests set `app.scheduler.enabled=false` and call `runOnce()` with a controllable `Clock`.
-Marking overdue unbooked shifts MISSED is not implemented yet.
+Before the outbox, each run marks ASSIGNED shifts that have **ended** without being marked
+booked as MISSED (`MissedShiftService`, under the assignment lock). The end time is used
+because members may confirm a booking until the shift ends. Following the assignment rules
+from #53, MISSED shifts do not count toward weekly fairness or the one-per-day limit. No
+alert is sent yet (`NUDGE`/`GROUP_ALERT` remain reserved).
 
 ## Other planning endpoints
 
