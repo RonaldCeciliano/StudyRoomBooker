@@ -290,6 +290,77 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
   /api/study-blocks/{id}:
+    get:
+      operationId: getStudyBlock
+      summary: Get one study block
+      description: Any date; deleted (cancelled) blocks return 404.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: The block.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudyBlock'
+        '404':
+          description: Study block does not exist or was deleted.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        default:
+          description: Unsuccessful response, including 401 without a member session.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+    delete:
+      operationId: deleteStudyBlock
+      summary: Delete a study block that has not started
+      description: >-
+        BOOKED shifts become CANCELLED with libcalCancelRequired true (the LibCal
+        reservation must still be cancelled manually); unbooked shifts are removed.
+        The block is removed, or kept hidden as cancelled when shifts must be kept.
+        Atomic.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '204':
+          description: Deleted.
+        '404':
+          description: Study block does not exist or was already deleted.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '409':
+          description: The block has already started.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        default:
+          description: Unsuccessful response, including 401 without a session and 403 without CSRF.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
     put:
       operationId: updateStudyBlock
       summary: Edit a study block that has not started
@@ -342,6 +413,60 @@ paths:
                 $ref: '#/components/schemas/ProblemDetail'
         default:
           description: Unsuccessful response, including 401 without a session and 403 without CSRF.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+  /api/members:
+    get:
+      operationId: listMembers
+      summary: List active members' display names
+      description: Emails are not exposed to other members.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Active members ordered by name.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Member'
+        default:
+          description: Unsuccessful response, including 401 without a member session.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+  /api/shifts/{id}:
+    get:
+      operationId: getShift
+      summary: Get one shift
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: The shift, with assignedToMe for the signed-in member.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Shift'
+        '404':
+          description: Shift does not exist.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        default:
+          description: Unsuccessful response, including 401 without a member session.
           content:
             application/problem+json:
               schema:
@@ -728,6 +853,15 @@ components:
           description: Rooms the member may book, planned room first, then active backups by priority.
           items:
             $ref: '#/components/schemas/RoomOption'
+    Member:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
     RoomOption:
       type: object
       required: [id, code, name]

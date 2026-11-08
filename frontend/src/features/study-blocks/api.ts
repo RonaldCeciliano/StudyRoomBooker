@@ -37,3 +37,16 @@ export function useSaveStudyBlock() {
     },
   })
 }
+
+export function useDeleteStudyBlock() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => apiFetch<void>(`/api/study-blocks/${id}`, { method: 'DELETE' }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: studyBlockKeys.all }),
+        queryClient.invalidateQueries({ queryKey: shiftKeys.all }),
+      ])
+    },
+  })
+}

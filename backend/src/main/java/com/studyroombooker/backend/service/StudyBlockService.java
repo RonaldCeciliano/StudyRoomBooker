@@ -74,6 +74,34 @@ public class StudyBlockService {
             request.preferredRoomId(), List.copyOf(backups));
     }
 
+    /**
+     * Deletes a block that has not started: BOOKED shifts become CANCELLED with
+     * {@code libcal_cancel_required}, unbooked shifts are removed, and the block is removed
+     * (or marked cancelled when shifts must be kept).
+     */
+    @Transactional
+    public void delete(long id) {
+        assignmentRepository.lockAssignments();
+        var existing = blocks.findOneTime(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "One-time study block not found"));
+        if (!instant(existing.date(), existing.startTime()).isAfter(clock.instant())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Study blocks that have started cannot be deleted");
+        }
+        blocks.clearShiftsForRegeneration(id);
+        blocks.deleteOrCancel(id, clock.instant());
+    }
+
+    @Transactional(readOnly = true)
+    public StudyBlockRepository.BlockView find(long id) {
+        return blocks.find(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "One-time study block not found"));
+    }
+
+    @Transactional(readOnly = true)
+    public List<StudyBlockRepository.Member> members() {
+        return blocks.activeMembers();
+    }
+
     @Transactional(readOnly = true)
     public List<StudyBlockRepository.BlockView> upcoming() {
         return blocks.upcoming(LocalDate.ofInstant(clock.instant(), LIBRARY_ZONE));

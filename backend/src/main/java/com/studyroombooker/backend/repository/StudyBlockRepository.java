@@ -61,13 +61,45 @@ public class StudyBlockRepository {
                    coalesce(array_agg(br.room_id ORDER BY br.priority) FILTER (WHERE br.room_id IS NOT NULL), '{}') AS backups
             FROM study_block b
             LEFT JOIN study_block_backup_room br ON br.study_block_id = b.id
-            WHERE b.kind = 'ONE_TIME' AND b.date >= ?
+            WHERE b.kind = 'ONE_TIME' AND b.cancelled_at IS NULL AND b.date >= ?
             GROUP BY b.id
             ORDER BY b.date, b.start_time, b.id
             """, (row, index) -> new BlockView(row.getLong("id"), row.getObject("date", LocalDate.class),
                 row.getObject("start_time", LocalTime.class), row.getObject("end_time", LocalTime.class),
                 row.getLong("preferred_room_id"),
                 List.of((Long[]) row.getArray("backups").getArray())), from);
+    }
+
+    public Optional<BlockView> find(long id) {
+        return jdbc.query("""
+            SELECT b.id, b.date, b.start_time, b.end_time, b.preferred_room_id,
+                   coalesce(array_agg(br.room_id ORDER BY br.priority) FILTER (WHERE br.room_id IS NOT NULL), '{}') AS backups
+            FROM study_block b
+            LEFT JOIN study_block_backup_room br ON br.study_block_id = b.id
+            WHERE b.id = ? AND b.kind = 'ONE_TIME' AND b.cancelled_at IS NULL
+            GROUP BY b.id
+            """, (row, index) -> new BlockView(row.getLong("id"), row.getObject("date", LocalDate.class),
+                row.getObject("start_time", LocalTime.class), row.getObject("end_time", LocalTime.class),
+                row.getLong("preferred_room_id"),
+                List.of((Long[]) row.getArray("backups").getArray())), id).stream().findFirst();
+    }
+
+    /** Removes the block if no shifts remain; otherwise marks it cancelled to keep their history. */
+    public void deleteOrCancel(long blockId, java.time.Instant now) {
+        Integer remaining = jdbc.queryForObject("SELECT count(*) FROM shift WHERE study_block_id = ?", Integer.class, blockId);
+        if (remaining != null && remaining == 0) {
+            jdbc.update("DELETE FROM study_block WHERE id = ?", blockId);
+        }
+        else {
+            jdbc.update("UPDATE study_block SET cancelled_at = ? WHERE id = ?", java.sql.Timestamp.from(now), blockId);
+        }
+    }
+
+    public record Member(long id, String name) {}
+
+    public List<Member> activeMembers() {
+        return jdbc.query("SELECT id, name FROM member WHERE active ORDER BY lower(name), id",
+            (row, index) -> new Member(row.getLong("id"), row.getString("name")));
     }
 
     public void update(long id, LocalDate date, LocalTime start, LocalTime end, long room, List<Long> backups) {
@@ -98,7 +130,7 @@ public class StudyBlockRepository {
     }
 
     public Optional<Block> findOneTime(long id) {
-        return jdbc.query("SELECT * FROM study_block WHERE id = ? AND kind = 'ONE_TIME' FOR UPDATE",
+        return jdbc.query("SELECT * FROM study_block WHERE id = ? AND kind = 'ONE_TIME' AND cancelled_at IS NULL FOR UPDATE",
             (row, index) -> new Block(row.getLong("id"), row.getObject("date", LocalDate.class),
                 row.getObject("start_time", LocalTime.class), row.getObject("end_time", LocalTime.class),
                 row.getLong("preferred_room_id")), id).stream().findFirst();

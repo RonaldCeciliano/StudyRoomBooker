@@ -152,12 +152,57 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Get one study block
+         * @description Any date; deleted (cancelled) blocks return 404.
+         */
+        get: operations["getStudyBlock"];
         /**
          * Edit a study block that has not started
          * @description Same validation as create. Changing the date or times cancels the block's BOOKED shifts (status CANCELLED, libcalCancelRequired true; the LibCal reservation must still be cancelled manually) and regenerates and reassigns the rest. Changing only rooms keeps shifts, assignments, and bookings, and moves unbooked shifts to the new preferred room. Atomic.
          */
         put: operations["updateStudyBlock"];
+        post?: never;
+        /**
+         * Delete a study block that has not started
+         * @description BOOKED shifts become CANCELLED with libcalCancelRequired true (the LibCal reservation must still be cancelled manually); unbooked shifts are removed. The block is removed, or kept hidden as cancelled when shifts must be kept. Atomic.
+         */
+        delete: operations["deleteStudyBlock"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List active members' display names
+         * @description Emails are not exposed to other members.
+         */
+        get: operations["listMembers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/shifts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one shift */
+        get: operations["getShift"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -350,6 +395,11 @@ export interface components {
             libcalCancelRequired: boolean;
             /** @description Rooms the member may book, planned room first, then active backups by priority. */
             bookingRooms: components["schemas"]["RoomOption"][];
+        };
+        Member: {
+            /** Format: int64 */
+            id: number;
+            name: string;
         };
         RoomOption: {
             /** Format: int64 */
@@ -711,6 +761,46 @@ export interface operations {
             };
         };
     };
+    getStudyBlock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The block. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudyBlock"];
+                };
+            };
+            /** @description Study block does not exist or was deleted. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unsuccessful response, including 401 without a member session. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     updateStudyBlock: {
         parameters: {
             query?: never;
@@ -766,6 +856,125 @@ export interface operations {
                 };
             };
             /** @description Unsuccessful response, including 401 without a session and 403 without CSRF. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    deleteStudyBlock: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Value of the XSRF-TOKEN cookie (set by GET /api/session). */
+                "X-XSRF-TOKEN": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Study block does not exist or was already deleted. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The block has already started. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unsuccessful response, including 401 without a session and 403 without CSRF. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    listMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active members ordered by name. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Member"][];
+                };
+            };
+            /** @description Unsuccessful response, including 401 without a member session. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getShift: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The shift, with assignedToMe for the signed-in member. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Shift"];
+                };
+            };
+            /** @description Shift does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unsuccessful response, including 401 without a member session. */
             default: {
                 headers: {
                     [name: string]: unknown;

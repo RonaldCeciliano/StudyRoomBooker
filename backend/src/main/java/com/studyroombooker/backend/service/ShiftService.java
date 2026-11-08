@@ -19,4 +19,10 @@ public class ShiftService {
     public List<ShiftSummary> listShifts(String viewerEmail) {
         return shifts.findAll(viewerEmail);
     }
+
+    @Transactional(readOnly = true)
+    public ShiftSummary getShift(long id, String viewerEmail) {
+        return shifts.findOne(id, viewerEmail).orElseThrow(() ->
+            new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Shift not found"));
+    }
 }

@@ -394,3 +394,13 @@ before the row is marked `SENT`, the next run can send it again. One backend ins
 assumed; consider ShedLock if more are added (the outbox itself stays duplicate-safe).
 Tests set `app.scheduler.enabled=false` and call `runOnce()` with a controllable `Clock`.
 Marking overdue unbooked shifts MISSED is not implemented yet.
+
+## Other planning endpoints
+
+- `GET /api/study-blocks/{id}` returns one block (404 if missing or deleted).
+- `DELETE /api/study-blocks/{id}` deletes a block that has not started (409 otherwise). BOOKED
+  shifts become CANCELLED with `libcal_cancel_required`, unbooked shifts are removed, and the
+  block row is removed, or marked `cancelled_at` (Flyway `V5`) and hidden when shifts must be
+  kept. Deleted blocks cannot be edited.
+- `GET /api/shifts/{id}` returns one shift in the `GET /api/shifts` shape.
+- `GET /api/members` lists active members' `id` and `name`; emails are not exposed.

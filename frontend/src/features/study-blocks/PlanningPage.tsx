@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { formatLocalDate, formatLocalTime } from '../../lib/time'
 import '../auth/auth.css'
 import '../shifts/shifts.css'
-import { type StudyBlock, useRooms, useSaveStudyBlock, useStudyBlocks } from './api'
+import { type StudyBlock, useDeleteStudyBlock, useRooms, useSaveStudyBlock, useStudyBlocks } from './api'
 import './planning.css'
 import { StudyBlockForm } from './StudyBlockForm'
 
@@ -12,7 +12,9 @@ export function PlanningPage() {
   const blocks = useStudyBlocks()
   const rooms = useRooms()
   const save = useSaveStudyBlock()
+  const remove = useDeleteStudyBlock()
   const [editing, setEditing] = useState<Editing>({ mode: 'closed' })
+  const [confirmingDelete, setConfirmingDelete] = useState<number>()
 
   const close = () => {
     save.reset()
@@ -76,20 +78,57 @@ export function PlanningPage() {
                     {block.backupRoomIds.length > 0 && ` · Backups ${block.backupRoomIds.map(roomCode).join(', ')}`}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  className="button button-secondary"
-                  aria-label={`Edit block on ${formatLocalDate(block.date)}`}
-                  onClick={() => {
-                    save.reset()
-                    setEditing({ mode: 'edit', block })
-                  }}
-                >
-                  Edit
-                </button>
+                <div className="form-actions">
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    aria-label={`Edit block on ${formatLocalDate(block.date)}`}
+                    onClick={() => {
+                      save.reset()
+                      setEditing({ mode: 'edit', block })
+                    }}
+                  >
+                    Edit
+                  </button>
+                  {confirmingDelete === block.id ? (
+                    <>
+                      <button
+                        type="button"
+                        className="button button-destructive"
+                        disabled={remove.isPending}
+                        onClick={() => remove.mutate(block.id, { onSettled: () => setConfirmingDelete(undefined) })}
+                      >
+                        Confirm Delete
+                      </button>
+                      <button type="button" className="button button-secondary" onClick={() => setConfirmingDelete(undefined)}>
+                        Keep
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      className="button button-secondary"
+                      aria-label={`Delete block on ${formatLocalDate(block.date)}`}
+                      onClick={() => {
+                        remove.reset()
+                        setConfirmingDelete(block.id)
+                      }}
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
+        )}
+        {confirmingDelete !== undefined && (
+          <p className="secondary-text">Booked shifts in this block are cancelled and must also be cancelled on LibCal.</p>
+        )}
+        {remove.isError && (
+          <p className="error-text" role="alert">
+            Couldn’t delete the block. {remove.error.message}
+          </p>
         )}
       </section>
     </>

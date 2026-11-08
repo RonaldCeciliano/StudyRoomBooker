@@ -104,4 +104,20 @@ describe('PlanningPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Get a sign-in link' })).toBeInTheDocument()
   })
+
+  it('deletes a block only after confirming', async () => {
+    const user = userEvent.setup()
+    renderApp('/planning')
+
+    await user.click(await screen.findByRole('button', { name: 'Delete block on Tuesday, November 10' }))
+    expect(screen.getByText(/must also be cancelled on LibCal/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Keep' }))
+    expect(studyBlocks).toHaveLength(1)
+
+    await user.click(screen.getByRole('button', { name: 'Delete block on Tuesday, November 10' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm Delete' }))
+
+    expect(await screen.findByText(/No upcoming study blocks/)).toBeInTheDocument()
+    expect(studyBlocks).toHaveLength(0)
+  })
 })
