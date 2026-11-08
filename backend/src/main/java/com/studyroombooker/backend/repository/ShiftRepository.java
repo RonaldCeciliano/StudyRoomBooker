@@ -21,14 +21,15 @@ public class ShiftRepository {
 
     public record ShiftSummary(long id, Instant startsAt, Instant endsAt, String status,
                                String plannedRoomCode, String memberName, String bookedRoomCode,
-                               boolean assignedToMe, List<RoomOption> bookingRooms) {}
+                               boolean assignedToMe, List<RoomOption> bookingRooms,
+                               boolean libcalCancelRequired) {}
 
     /** {@code viewerEmail} is the signed-in member, used only to flag their own shifts. */
     public List<ShiftSummary> findAll(String viewerEmail) {
         Map<Long, List<RoomOption>> rooms = bookingRooms();
         return jdbc.query("""
             SELECT s.id, s.starts_at, s.ends_at, s.status, r.code, m.name, br.code AS booked_code,
-                   coalesce(lower(m.email) = lower(?), false) AS mine
+                   coalesce(lower(m.email) = lower(?), false) AS mine, s.libcal_cancel_required
             FROM shift s
             JOIN room r ON r.id = s.planned_room_id
             LEFT JOIN room br ON br.id = s.booked_room_id
@@ -39,7 +40,8 @@ public class ShiftRepository {
                 row.getObject("ends_at", OffsetDateTime.class).toInstant(),
                 row.getString("status"), row.getString("code"), row.getString("name"),
                 row.getString("booked_code"), row.getBoolean("mine"),
-                rooms.getOrDefault(row.getLong("id"), List.of())), viewerEmail);
+                rooms.getOrDefault(row.getLong("id"), List.of()),
+                row.getBoolean("libcal_cancel_required")), viewerEmail);
     }
 
     /** Planned room first, then active backups by priority, for every shift. */

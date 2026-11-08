@@ -3,6 +3,7 @@ import { LoginPage } from '../features/auth/LoginPage'
 import { MagicLinkPage } from '../features/auth/MagicLinkPage'
 import { RequireSession } from '../features/auth/RequireSession'
 import { DashboardPage } from '../features/dashboard/DashboardPage'
+import { PlanningPage } from '../features/study-blocks/PlanningPage'
 import { ErrorPage } from './ErrorPage'
 import { Layout } from './Layout'
 import { NotFoundPage } from './NotFoundPage'
@@ -20,6 +21,14 @@ export const routes: RouteObject[] = [
             element: (
               <RequireSession>
                 <DashboardPage />
+              </RequireSession>
+            ),
+          },
+          {
+            path: 'planning',
+            element: (
+              <RequireSession>
+                <PlanningPage />
               </RequireSession>
             ),
           },

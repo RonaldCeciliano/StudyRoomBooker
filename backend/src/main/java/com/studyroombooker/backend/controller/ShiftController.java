@@ -19,14 +19,15 @@ public class ShiftController {
 
     public record ShiftResponse(long id, Instant startsAt, Instant endsAt, String status,
                                 String plannedRoomCode, String memberName, String bookedRoomCode,
-                                boolean assignedToMe, List<RoomOption> bookingRooms) {}
+                                boolean assignedToMe, List<RoomOption> bookingRooms,
+                                boolean libcalCancelRequired) {}
 
     @GetMapping("/api/shifts")
     public List<ShiftResponse> list(Principal principal) {
         return shifts.listShifts(principal == null ? null : principal.getName()).stream()
             .map(shift -> new ShiftResponse(shift.id(), shift.startsAt(), shift.endsAt(), shift.status(),
                 shift.plannedRoomCode(), shift.memberName(), shift.bookedRoomCode(),
-                shift.assignedToMe(), shift.bookingRooms()))
+                shift.assignedToMe(), shift.bookingRooms(), shift.libcalCancelRequired()))
             .toList();
     }
 }

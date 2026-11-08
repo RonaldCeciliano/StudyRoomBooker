@@ -128,13 +128,57 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List upcoming one-time study blocks
+         * @description Blocks dated today or later in America/Chicago, soonest first.
+         */
+        get: operations["listStudyBlocks"];
         put?: never;
         /**
          * Create a one-time study block, split shifts, and assign eligible members
          * @description Uses America/Chicago local date and times. Start must be in the future, both times must align to quarter hours, and end must follow start on the same day within known library hours. Ambiguous/nonexistent DST times are rejected. Rooms must exist and be active; backups are unique, ordered, and exclude the preferred room. Creation is atomic. Repeating POST creates a separate block; internal shift generation is idempotent per block. Generated future shifts are assigned chronologically to active eligible members with no active responsibility on the same Chicago date or overlap and no conflicting one-time or weekly unavailability. Rank by active shift count in the Monday-Sunday Chicago week, then elapsed hours, then member ID. Shifts remain UNASSIGNED when no member qualifies.
          */
         post: operations["createStudyBlock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/study-blocks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit a study block that has not started
+         * @description Same validation as create. Changing the date or times cancels the block's BOOKED shifts (status CANCELLED, libcalCancelRequired true; the LibCal reservation must still be cancelled manually) and regenerates and reassigns the rest. Changing only rooms keeps shifts, assignments, and bookings, and moves unbooked shifts to the new preferred room. Atomic.
+         */
+        put: operations["updateStudyBlock"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/rooms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List active rooms
+         * @description Active rooms ordered by code, for planning forms.
+         */
+        get: operations["listRooms"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -222,6 +266,8 @@ export interface components {
             bookedRoomCode: string | null;
             /** @description True when the signed-in member is the assigned member. */
             assignedToMe: boolean;
+            /** @description True when an edit cancelled this BOOKED shift; the member must still cancel the real LibCal reservation through the library's process. */
+            libcalCancelRequired: boolean;
             /** @description Rooms the member may book, planned room first, then active backups by priority. */
             bookingRooms: components["schemas"]["RoomOption"][];
         };
@@ -514,6 +560,35 @@ export interface operations {
             };
         };
     };
+    listStudyBlocks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Upcoming blocks; an empty array when none. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudyBlock"][];
+                };
+            };
+            /** @description Unsuccessful response, including 401 without a member session. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     createStudyBlock: {
         parameters: {
             query?: never;
@@ -546,6 +621,100 @@ export interface operations {
                 };
             };
             /** @description Unexpected failure. Database failures do not disclose database details. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    updateStudyBlock: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Value of the XSRF-TOKEN cookie (set by GET /api/session). */
+                "X-XSRF-TOKEN": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateStudyBlock"];
+            };
+        };
+        responses: {
+            /** @description Updated block. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudyBlock"];
+                };
+            };
+            /** @description Invalid JSON, scheduling times, library hours, or room selection. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Study block does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The block has already started. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unsuccessful response, including 401 without a session and 403 without CSRF. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    listRooms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active rooms. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoomOption"][];
+                };
+            };
+            /** @description Unsuccessful response, including 401 without a member session. */
             default: {
                 headers: {
                     [name: string]: unknown;

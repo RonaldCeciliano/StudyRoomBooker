@@ -226,6 +226,27 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
   /api/study-blocks:
+    get:
+      operationId: listStudyBlocks
+      summary: List upcoming one-time study blocks
+      description: Blocks dated today or later in America/Chicago, soonest first.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Upcoming blocks; an empty array when none.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StudyBlock'
+        default:
+          description: Unsuccessful response, including 401 without a member session.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
     post:
       operationId: createStudyBlock
       summary: Create a one-time study block, split shifts, and assign eligible members
@@ -268,6 +289,85 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
+  /api/study-blocks/{id}:
+    put:
+      operationId: updateStudyBlock
+      summary: Edit a study block that has not started
+      description: >-
+        Same validation as create. Changing the date or times cancels the block's
+        BOOKED shifts (status CANCELLED, libcalCancelRequired true; the LibCal
+        reservation must still be cancelled manually) and regenerates and reassigns
+        the rest. Changing only rooms keeps shifts, assignments, and bookings, and
+        moves unbooked shifts to the new preferred room. Atomic.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStudyBlock'
+      responses:
+        '200':
+          description: Updated block.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudyBlock'
+        '400':
+          description: Invalid JSON, scheduling times, library hours, or room selection.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '404':
+          description: Study block does not exist.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '409':
+          description: The block has already started.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        default:
+          description: Unsuccessful response, including 401 without a session and 403 without CSRF.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+  /api/rooms:
+    get:
+      operationId: listRooms
+      summary: List active rooms
+      description: Active rooms ordered by code, for planning forms.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Active rooms.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoomOption'
+        default:
+          description: Unsuccessful response, including 401 without a member session.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
   /api/shifts:
     get:
       operationId: listShifts
@@ -295,6 +395,7 @@ paths:
                       memberName: Ronald
                       bookedRoomCode: 441D
                       assignedToMe: false
+                      libcalCancelRequired: false
                       bookingRooms:
                         - { id: 1, code: 441D, name: Group Study 441D }
                         - { id: 2, code: 441E, name: Group Study 441E }
@@ -306,6 +407,7 @@ paths:
                       memberName: Genaro
                       bookedRoomCode: null
                       assignedToMe: true
+                      libcalCancelRequired: false
                       bookingRooms:
                         - { id: 1, code: 441D, name: Group Study 441D }
                         - { id: 2, code: 441E, name: Group Study 441E }
@@ -317,6 +419,7 @@ paths:
                       memberName: null
                       bookedRoomCode: null
                       assignedToMe: false
+                      libcalCancelRequired: false
                       bookingRooms:
                         - { id: 2, code: 441E, name: Group Study 441E }
                 empty:
@@ -429,7 +532,7 @@ components:
             format: int64
     Shift:
       type: object
-      required: [id, startsAt, endsAt, status, plannedRoomCode, memberName, bookedRoomCode, assignedToMe, bookingRooms]
+      required: [id, startsAt, endsAt, status, plannedRoomCode, memberName, bookedRoomCode, assignedToMe, bookingRooms, libcalCancelRequired]
       properties:
         id:
           type: integer
@@ -459,6 +562,11 @@ components:
         assignedToMe:
           type: boolean
           description: True when the signed-in member is the assigned member.
+        libcalCancelRequired:
+          type: boolean
+          description: >-
+            True when an edit cancelled this BOOKED shift; the member must still cancel the
+            real LibCal reservation through the library's process.
         bookingRooms:
           type: array
           description: Rooms the member may book, planned room first, then active backups by priority.

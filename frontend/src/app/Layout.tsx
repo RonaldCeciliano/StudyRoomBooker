@@ -20,6 +20,11 @@ export function Layout() {
             Dashboard
           </NavLink>
           {signedIn && (
+            <NavLink to="/planning" className="nav-pill">
+              Planning
+            </NavLink>
+          )}
+          {signedIn && (
             <button
               type="button"
               className="nav-pill nav-button"

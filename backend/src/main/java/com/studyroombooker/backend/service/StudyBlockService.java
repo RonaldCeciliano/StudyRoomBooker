@@ -39,6 +39,52 @@ public class StudyBlockService {
 
     @Transactional
     public CreatedBlock create(CreateRequest request) {
+        List<Long> backups = validate(request);
+        long id = blocks.insert(request.date(), request.startTime(), request.endTime(), request.preferredRoomId(), backups);
+        generateShifts(id);
+        return new CreatedBlock(id, "ONE_TIME", request.date(), request.startTime(), request.endTime(),
+            request.preferredRoomId(), List.copyOf(backups));
+    }
+
+    /**
+     * Edits a block that has not started. Changing the date or times cancels BOOKED shifts
+     * (flagged {@code libcal_cancel_required}) and regenerates and reassigns the rest;
+     * changing only rooms re-plans unbooked shifts and keeps existing reservations.
+     */
+    @Transactional
+    public CreatedBlock update(long id, CreateRequest request) {
+        assignmentRepository.lockAssignments();
+        var existing = blocks.findOneTime(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "One-time study block not found"));
+        if (!instant(existing.date(), existing.startTime()).isAfter(clock.instant())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Study blocks that have started cannot be edited");
+        }
+        List<Long> backups = validate(request);
+        blocks.update(id, request.date(), request.startTime(), request.endTime(), request.preferredRoomId(), backups);
+        boolean timesChanged = !existing.date().equals(request.date())
+            || !existing.startTime().equals(request.startTime()) || !existing.endTime().equals(request.endTime());
+        if (timesChanged) {
+            blocks.clearShiftsForRegeneration(id);
+        }
+        else {
+            blocks.replanRoom(id, request.preferredRoomId());
+        }
+        generateShifts(id);
+        return new CreatedBlock(id, "ONE_TIME", request.date(), request.startTime(), request.endTime(),
+            request.preferredRoomId(), List.copyOf(backups));
+    }
+
+    @Transactional(readOnly = true)
+    public List<StudyBlockRepository.BlockView> upcoming() {
+        return blocks.upcoming(LocalDate.ofInstant(clock.instant(), LIBRARY_ZONE));
+    }
+
+    @Transactional(readOnly = true)
+    public List<StudyBlockRepository.Room> rooms() {
+        return blocks.activeRooms();
+    }
+
+    private List<Long> validate(CreateRequest request) {
         require(request.date() != null && request.startTime() != null && request.endTime() != null
             && request.preferredRoomId() != null, "date, startTime, endTime, and preferredRoomId are required");
         var start = request.startTime();
@@ -62,10 +108,7 @@ public class StudyBlockService {
         for (long room : rooms.stream().sorted().toList()) {
             require(blocks.activeRoom(room), "All rooms must exist and be active");
         }
-        long id = blocks.insert(request.date(), start, end, request.preferredRoomId(), backups);
-        generateShifts(id);
-        return new CreatedBlock(id, "ONE_TIME", request.date(), start, end,
-            request.preferredRoomId(), List.copyOf(backups));
+        return backups;
     }
 
     /** Repeated generation preserves existing assignments and booking state. */
