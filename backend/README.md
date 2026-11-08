@@ -305,3 +305,23 @@ from `http://localhost:5173/login`, copy the link from the log, and press Contin
 Not implemented: rate limiting by IP, member invitation/management UI, and persistent
 (JDBC) sessions.
 
+
+## Marking a shift booked
+
+After reserving the room on LibCal (`https://uark.libcal.com/reserve`; there is no
+booking-specific deep link), the assigned member calls `POST /api/shifts/{id}/booked`
+with an optional JSON body `{"bookedRoomId": 2}`. It returns 204 and sets `status =
+BOOKED`, `booked_room_id`, and `booked_at`. This is group tracking based on the member's
+confirmation; nothing contacts or verifies LibCal.
+
+Only the signed-in assigned member may call it (401 without a session, 403 for anyone
+else, 404 for a missing shift). The shift must be ASSIGNED or BOOKED and not yet ended
+(409 otherwise); a shift in progress can still be confirmed. `bookedRoomId` must be the
+planned room or one of the block's active backup rooms (400 otherwise). Without it, the
+current booked room is kept, defaulting to the planned room. Repeating the call on a
+BOOKED shift corrects the room and keeps the original `booked_at`. BOOKED shifts still
+count toward fairness and cannot be released.
+
+`GET /api/shifts` now also returns `bookedRoomCode`, `assignedToMe` (the signed-in
+member is the assignee), and `bookingRooms` (planned room, then active backups) so the
+dashboard can show Book on LibCal, Mark Booked, and Release on the member's own shifts.

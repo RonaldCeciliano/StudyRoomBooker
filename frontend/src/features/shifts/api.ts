@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '../../api/client'
 import type { components, paths } from '../../api/generated/schema'
 
@@ -16,4 +16,29 @@ export function fetchShifts(): Promise<ShiftsResponse> {
 
 export function useShifts() {
   return useQuery({ queryKey: shiftKeys.all, queryFn: fetchShifts })
+}
+
+export type RoomOption = components['schemas']['RoomOption']
+
+/** LibCal's general reservation page. There is no booking-specific deep link (ARCHITECTURE.md). */
+export const LIBCAL_RESERVE_URL = 'https://uark.libcal.com/reserve'
+
+export function useMarkBooked() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ shiftId, bookedRoomId }: { shiftId: number; bookedRoomId?: number }) =>
+      apiFetch<void>(`/api/shifts/${shiftId}/booked`, {
+        method: 'POST',
+        body: JSON.stringify(bookedRoomId === undefined ? {} : { bookedRoomId }),
+      }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: shiftKeys.all }),
+  })
+}
+
+export function useReleaseShift() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (shiftId: number) => apiFetch<void>(`/api/shifts/${shiftId}/release`, { method: 'POST' }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: shiftKeys.all }),
+  })
 }

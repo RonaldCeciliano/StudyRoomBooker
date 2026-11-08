@@ -107,6 +107,67 @@ paths:
           description: Signed out (also when no session existed). No body.
         '403':
           $ref: '#/components/responses/CsrfRejected'
+  /api/shifts/{id}/booked:
+    post:
+      operationId: markShiftBooked
+      summary: Confirm the current member booked their shift on LibCal
+      description: >-
+        Group tracking only: records the member's confirmation, sets status BOOKED,
+        the booked room, and booked_at. Nothing verifies or contacts LibCal. Only the
+        assigned owner of an ASSIGNED or BOOKED shift that has not ended may call it.
+        bookedRoomId must be one of the shift's bookingRooms (planned room or an
+        active backup); when omitted the current booked room is kept, defaulting to
+        the planned room. Repeating on a BOOKED shift corrects the room and keeps the
+        original booked_at. BOOKED shifts cannot be released.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarkBooked'
+      responses:
+        '204':
+          description: Marked booked; no response body.
+        '400':
+          description: bookedRoomId is not one of the shift's booking rooms, or the JSON is invalid.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: No member session.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: Not the shift's assigned member, or missing CSRF header.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '404':
+          description: Shift does not exist.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '409':
+          description: Shift has ended or is MISSED or CANCELLED.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
   /api/shifts/{id}/release:
     post:
       operationId: releaseShift
@@ -232,18 +293,32 @@ paths:
                       status: BOOKED
                       plannedRoomCode: 441D
                       memberName: Ronald
+                      bookedRoomCode: 441D
+                      assignedToMe: false
+                      bookingRooms:
+                        - { id: 1, code: 441D, name: Group Study 441D }
+                        - { id: 2, code: 441E, name: Group Study 441E }
                     - id: 2
                       startsAt: '2026-10-13T03:00:00Z'
                       endsAt: '2026-10-13T05:00:00Z'
                       status: ASSIGNED
                       plannedRoomCode: 441D
                       memberName: Genaro
+                      bookedRoomCode: null
+                      assignedToMe: true
+                      bookingRooms:
+                        - { id: 1, code: 441D, name: Group Study 441D }
+                        - { id: 2, code: 441E, name: Group Study 441E }
                     - id: 3
                       startsAt: '2026-10-14T19:00:00Z'
                       endsAt: '2026-10-14T23:00:00Z'
                       status: UNASSIGNED
                       plannedRoomCode: 441E
                       memberName: null
+                      bookedRoomCode: null
+                      assignedToMe: false
+                      bookingRooms:
+                        - { id: 2, code: 441E, name: Group Study 441E }
                 empty:
                   value: []
         '500':
@@ -354,7 +429,7 @@ components:
             format: int64
     Shift:
       type: object
-      required: [id, startsAt, endsAt, status, plannedRoomCode, memberName]
+      required: [id, startsAt, endsAt, status, plannedRoomCode, memberName, bookedRoomCode, assignedToMe, bookingRooms]
       properties:
         id:
           type: integer
@@ -377,6 +452,36 @@ components:
         memberName:
           type: string
           nullable: true
+        bookedRoomCode:
+          type: string
+          nullable: true
+          description: Room the member reported booking; null unless the shift has been marked BOOKED.
+        assignedToMe:
+          type: boolean
+          description: True when the signed-in member is the assigned member.
+        bookingRooms:
+          type: array
+          description: Rooms the member may book, planned room first, then active backups by priority.
+          items:
+            $ref: '#/components/schemas/RoomOption'
+    RoomOption:
+      type: object
+      required: [id, code, name]
+      properties:
+        id:
+          type: integer
+          format: int64
+        code:
+          type: string
+        name:
+          type: string
+    MarkBooked:
+      type: object
+      properties:
+        bookedRoomId:
+          type: integer
+          format: int64
+          description: One of the shift's bookingRooms ids. Omit to keep the current or planned room.
     ProblemDetail:
       type: object
       description: Standard ProblemDetail fields. All fields remain optional to preserve the existing client contract; no custom extensions are defined.
