@@ -226,3 +226,16 @@ checks, unchanged booking data, immediate-only exclusion, unchanged unrelated sh
 weekly fairness, rollback on failed replacement, duplicate concurrent release, and
 HTTP status/ProblemDetail responses. Existing assignment tests continue to cover
 eligibility, overlapping reservations, local-date/week boundaries, and DST.
+
+
+## Email
+
+Services send mail through the `EmailSender` interface (`email` package) with an
+`EmailMessage` of recipient, subject, and plain-text body. Inject the interface, never
+a concrete sender. Delivery failures surface as `EmailDeliveryException` so future
+callers (notification outbox, magic links) can record them.
+
+`LoggingEmailSender` is active for every profile except `prod`: `dev`, `test`, and runs
+with no profile log the message at INFO instead of sending it, so local runs and tests
+never contact a mail server. No SMTP is configured yet; the production `prod` sender is
+tracked separately, and until it exists no `EmailSender` bean is registered under `prod`.
