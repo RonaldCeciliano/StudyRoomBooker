@@ -237,5 +237,29 @@ callers (notification outbox, magic links) can record them.
 
 `LoggingEmailSender` is active for every profile except `prod`: `dev`, `test`, and runs
 with no profile log the message at INFO instead of sending it, so local runs and tests
-never contact a mail server. No SMTP is configured yet; the production `prod` sender is
-tracked separately, and until it exists no `EmailSender` bean is registered under `prod`.
+never contact a mail server, even if mail properties are set.
+
+`SmtpEmailSender` is active only for the `prod` profile and sends plain-text mail through
+Gmail SMTP (STARTTLS on port 587) using a Google app password for the project account.
+`application-prod.properties` reads every value from the environment:
+
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `SMTP_USERNAME` | yes | — | Gmail address used to sign in |
+| `SMTP_PASSWORD` | yes | — | Google app password (not the account password) |
+| `EMAIL_FROM` | no | `SMTP_USERNAME` | From address on outgoing mail |
+| `SMTP_HOST` | no | `smtp.gmail.com` | SMTP server |
+| `SMTP_PORT` | no | `587` | SMTP port (STARTTLS required) |
+
+Fake example only — never commit real values:
+
+```sh
+export SMTP_USERNAME=studyroombooker.example@gmail.com
+export SMTP_PASSWORD=abcd-efgh-ijkl-mnop
+export EMAIL_FROM=studyroombooker.example@gmail.com
+```
+
+Startup under `prod` fails if the username, password, or from address is blank, rather
+than failing on the first send. SMTP timeouts are 10 seconds. The mail health check is
+disabled so `/actuator/health` does not depend on Gmail availability. Delivery errors
+are wrapped in `EmailDeliveryException`.
