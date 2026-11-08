@@ -1,6 +1,30 @@
 import { http, HttpResponse } from 'msw'
-import { shifts } from './data'
+import { mockRooms, shifts, studyBlocks } from './data'
+import type { StudyBlock, StudyBlockInput } from '../features/study-blocks/api'
 import { mockSession, VALID_MAGIC_TOKEN } from './session'
+
+const withSeconds = (time: string) => (time.length === 5 ? `${time}:00` : time)
+
+function toBlock(input: StudyBlockInput): Omit<StudyBlock, 'id'> {
+  return {
+    kind: 'ONE_TIME',
+    date: input.date,
+    startTime: withSeconds(input.startTime),
+    endTime: withSeconds(input.endTime),
+    preferredRoomId: input.preferredRoomId,
+    backupRoomIds: input.backupRoomIds ?? [],
+  }
+}
+
+// A small subset of the server's validation, enough to exercise error display.
+function validateBlock(input: StudyBlockInput): string | undefined {
+  if (input.endTime <= input.startTime) return 'endTime must be after startTime on the same date'
+  if (!/^\d{2}:(00|15|30|45)/.test(input.startTime) || !/^\d{2}:(00|15|30|45)/.test(input.endTime)) {
+    return 'Times must align to 15-minute boundaries'
+  }
+  if (input.backupRoomIds?.includes(input.preferredRoomId)) return 'Preferred room cannot also be a backup'
+  return undefined
+}
 
 const problem = (status: number, title: string, detail: string) =>
   HttpResponse.json({ title, status, detail }, { status, headers: { 'Content-Type': 'application/problem+json' } })
@@ -35,6 +59,27 @@ export const handlers = [
     shift.status = 'BOOKED'
     shift.bookedRoomCode = room.code
     return new HttpResponse(null, { status: 204 })
+  }),
+  http.get('/api/rooms', () => (mockSession.current.authenticated ? HttpResponse.json(mockRooms) : unauthorized())),
+  http.get('/api/study-blocks', () =>
+    mockSession.current.authenticated ? HttpResponse.json(studyBlocks) : unauthorized(),
+  ),
+  http.post('/api/study-blocks', async ({ request }) => {
+    const input = (await request.json()) as StudyBlockInput
+    const invalid = validateBlock(input)
+    if (invalid) return problem(400, 'Bad Request', invalid)
+    const block: StudyBlock = { ...toBlock(input), id: Math.max(0, ...studyBlocks.map((b) => b.id)) + 1 }
+    studyBlocks.push(block)
+    return HttpResponse.json(block, { status: 201 })
+  }),
+  http.put('/api/study-blocks/:id', async ({ params, request }) => {
+    const index = studyBlocks.findIndex((b) => b.id === Number(params.id))
+    if (index < 0) return problem(404, 'Not Found', 'One-time study block not found')
+    const input = (await request.json()) as StudyBlockInput
+    const invalid = validateBlock(input)
+    if (invalid) return problem(400, 'Bad Request', invalid)
+    studyBlocks[index] = { ...toBlock(input), id: studyBlocks[index].id }
+    return HttpResponse.json(studyBlocks[index])
   }),
   http.post('/api/shifts/:id/release', ({ params }) => {
     const shift = shifts.find((s) => s.id === Number(params.id))

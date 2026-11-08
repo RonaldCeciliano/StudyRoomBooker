@@ -2,6 +2,7 @@ import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
+import { shifts } from '../../mocks/data'
 import { server } from '../../mocks/node'
 import { renderApp } from '../../test/renderApp'
 
@@ -77,5 +78,14 @@ describe('shift actions', () => {
     await user.click(mine.getByRole('button', { name: 'Mark Booked' }))
 
     expect(await mine.findByRole('alert')).toHaveTextContent('Only your current or upcoming assigned shifts')
+  })
+
+  it('tells me to cancel on LibCal when an edit cancelled my booked shift', async () => {
+    Object.assign(shifts[1], { status: 'CANCELLED', bookedRoomCode: '441D', libcalCancelRequired: true })
+    renderApp('/')
+
+    const mine = await myShift()
+    expect(mine.getByRole('note')).toHaveTextContent('Cancel your LibCal reservation through the library.')
+    expect(mine.queryByRole('button', { name: 'Mark Booked' })).not.toBeInTheDocument()
   })
 })

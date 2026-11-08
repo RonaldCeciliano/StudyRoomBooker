@@ -41,7 +41,7 @@ class ShiftsApiTests extends PostgresIntegrationTest {
                 var fields = new HashSet<String>();
                 shift.propertyNames().forEach(fields::add);
                 assertThat(fields).containsExactlyInAnyOrder("id", "startsAt", "endsAt", "status", "plannedRoomCode",
-                    "memberName", "bookedRoomCode", "assignedToMe", "bookingRooms");
+                    "memberName", "bookedRoomCode", "assignedToMe", "bookingRooms", "libcalCancelRequired");
                 assertThat(shift.get("id").isIntegralNumber()).isTrue();
                 assertThat(shift.get("status").asString()).isEqualTo(statuses[i]);
                 assertThat(shift.get("plannedRoomCode").asString()).isEqualTo("DEMO-A");

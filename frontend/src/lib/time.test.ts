@@ -22,3 +22,13 @@ describe('library time formatting', () => {
     expect(formatLibraryDate('2026-10-13T03:00:00Z')).toBe('Monday, October 12')
   })
 })
+
+describe('library-local study block values', () => {
+  it('formats calendar dates and wall-clock times without time-zone shifts', async () => {
+    const { formatLocalDate, formatLocalTime } = await import('./time')
+    expect(formatLocalDate('2026-11-10')).toBe('Tuesday, November 10')
+    expect(formatLocalTime('12:00:00')).toBe('12:00 PM')
+    expect(formatLocalTime('00:15')).toBe('12:15 AM')
+    expect(formatLocalTime('23:45:00')).toBe('11:45 PM')
+  })
+})

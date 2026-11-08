@@ -63,6 +63,11 @@ function ShiftRow({ shift }: { shift: Shift }) {
         </span>
         <ShiftStatusBadge status={shift.status} />
       </div>
+      {shift.assignedToMe && shift.libcalCancelRequired && (
+        <p className="shift-action-error" role="note">
+          This booked shift was cancelled by a schedule change. Cancel your LibCal reservation through the library.
+        </p>
+      )}
       <ShiftActions shift={shift} />
     </li>
   )

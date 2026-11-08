@@ -325,3 +325,24 @@ count toward fairness and cannot be released.
 `GET /api/shifts` now also returns `bookedRoomCode`, `assignedToMe` (the signed-in
 member is the assignee), and `bookingRooms` (planned room, then active backups) so the
 dashboard can show Book on LibCal, Mark Booked, and Release on the member's own shifts.
+
+## Listing and editing study blocks
+
+`GET /api/study-blocks` lists one-time blocks dated today or later (America/Chicago),
+soonest first. `GET /api/rooms` lists active rooms ordered by code for planning forms.
+
+`PUT /api/study-blocks/{id}` takes the same body and validation as create and returns
+the updated block. Only blocks that have not started can be edited (409 otherwise); past
+shifts are never rewritten. In one transaction, under the shared assignment lock:
+
+- **Date or times changed:** BOOKED shifts become CANCELLED with
+  `libcal_cancel_required = true` (the real LibCal reservation still exists and must be
+  cancelled through the library's process); UNASSIGNED and ASSIGNED shifts are removed;
+  shifts are regenerated and reassigned with the usual fairness rules.
+- **Only rooms changed:** shifts, assignments, and bookings are kept; unbooked shifts move
+  to the new preferred room, and backup rooms are replaced in the given order.
+
+Migration `V3` makes the (block, start) uniqueness ignore CANCELLED shifts, so a cancelled
+booked shift does not block regenerating a shift at the same start. `GET /api/shifts`
+exposes `libcalCancelRequired` so the dashboard tells the member to cancel on LibCal.
+Deleting study blocks is not implemented.
