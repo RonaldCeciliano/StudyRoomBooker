@@ -364,3 +364,32 @@ there is no member ID in the path.
 Writes take the shared assignment advisory lock, as required for assignment inputs.
 Entries affect future assignment only: shifts already assigned are not changed, and the
 member can release them from the dashboard.
+
+## Notifications and booking reminders
+
+Notifications are stored in the `notification` outbox (Flyway `V4`) before they are sent,
+with one row per shift, member, and type (`REMINDER`; `NUDGE` and `GROUP_ALERT` are
+reserved). `NotificationScheduler` calls `NotificationService.runOnce()` every
+`app.notifications.interval` (default `5m`, first run after `app.notifications.initial-delay`,
+default `30s`). Each run is self-healing and works out what is due now:
+
+1. **Enqueue.** Every future ASSIGNED shift whose America/Chicago date is at most 14 days
+   away gets a `REMINDER` for its current member. LibCal's 14-day window is rolling, but
+   whether a date opens at midnight or at the matching time of day is unverified (ADR
+   0005), so reminders go out from the start of that day and tell the member to try again
+   later that day if the slot is not open yet.
+2. **Send.** Due `PENDING`/`FAILED` rows are claimed with `FOR UPDATE SKIP LOCKED`, so
+   overlapping or duplicate runs never send the same reminder twice. The reminder lists the
+   room, backup rooms, date, time, the Book Room link (`https://uark.libcal.com/reserve`),
+   and the app URL (`APP_BASE_URL`) for marking the shift booked.
+3. **Retry.** A failed send is `FAILED` with `last_error` and retries after 5, 10, 20, then
+   40 minutes; after 5 attempts `next_attempt_at` is cleared and it stops.
+4. **Skip stale reminders.** A reminder whose shift was released, booked, cancelled, or
+   started, or whose member was deactivated, is marked `FAILED` ("Not sent: ...") without
+   sending. A reassigned shift gets a new reminder for its new member.
+
+Delivery is at-least-once: if the process stops after the mail server accepts a message but
+before the row is marked `SENT`, the next run can send it again. One backend instance is
+assumed; consider ShedLock if more are added (the outbox itself stays duplicate-safe).
+Tests set `app.scheduler.enabled=false` and call `runOnce()` with a controllable `Clock`.
+Marking overdue unbooked shifts MISSED is not implemented yet.
