@@ -67,6 +67,24 @@ services:
       - caddy-config:/config
     logging: *logging
 
+  backup:
+    image: postgres:17
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "/backup.sh", "loop"]
+    environment:
+      TZ: America/Chicago
+      PGUSER: ${DB_USERNAME}
+      PGPASSWORD: ${DB_PASSWORD}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - ./infra/backup/backup.sh:/backup.sh:ro
+      # A host directory, deliberately separate from the postgres-data volume.
+      - ${BACKUP_HOST_DIR:-./backups}:/backups
+    logging: *logging
+
 volumes:
   postgres-data:
   caddy-data:
