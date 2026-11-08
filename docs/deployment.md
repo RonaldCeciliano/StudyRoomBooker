@@ -49,12 +49,20 @@ start without SMTP credentials or `APP_BASE_URL`.
 
 ## Adding members
 
-There is no invitation UI yet. Add members directly; they can then request a sign-in link:
+There is no invitation UI yet. Add members on the server with
+[`infra/scripts/add-member.sh`](../infra/scripts/add-member.sh); they can then request a
+sign-in link at the site:
 
 ```sh
-docker compose exec db psql -U "$DB_USERNAME" -d studyroombooker \
-  -c "INSERT INTO member(name, email) VALUES ('Name', 'name@uark.edu');"
+infra/scripts/add-member.sh "Jane Doe" jane@uark.edu              # sign-in/reminder email
+infra/scripts/add-member.sh "Jane Doe" jane@gmail.com jd@uark.edu # optional separate UARK email
+infra/scripts/add-member.sh --list
 ```
+
+The script takes the shared assignment lock, passes values as psql variables (no SQL
+quoting needed), and fails on a duplicate email (case-insensitive). Deactivating a member
+is still SQL (`UPDATE member SET active = false WHERE id = ...;`); their existing future
+shifts stay assigned, so release or reassign those first.
 
 Rooms and library hours are also inserted with SQL (`room`, `library_hours` tables;
 see `V1__core_planning_schema.sql`). Use the real library hours and room codes.
