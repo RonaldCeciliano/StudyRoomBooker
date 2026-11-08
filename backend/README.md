@@ -408,3 +408,21 @@ alert is sent yet (`NUDGE`/`GROUP_ALERT` remain reserved).
   kept. Deleted blocks cannot be edited.
 - `GET /api/shifts/{id}` returns one shift in the `GET /api/shifts` shape.
 - `GET /api/members` lists active members' `id` and `name`; emails are not exposed.
+
+## Email action links
+
+Each booking reminder includes an **I booked it** link to `${APP_BASE_URL}/actions/booked?token=...`
+(ARCHITECTURE.md "Action Tokens"). The token is 32 random bytes (base64url), stored only as a
+SHA-256 hash in `action_token` (Flyway `V6`), bound to one member, one shift, and the
+`MARK_BOOKED` action, and it expires when the shift ends. Each reminder issues its own token;
+a send that fails deletes its token.
+
+- `GET /api/actions/booked?token=...` (public) previews the shift and never consumes the token,
+  so email scanners are harmless. The React page shows **Confirm Booked**.
+- `POST /api/actions/booked` with `{"token": "..."}` (public, CSRF required) consumes the
+  token and marks the shift booked in its planned room as the token's member, with the same
+  rules as `POST /api/shifts/{id}/booked`. If that is rejected (released, cancelled, ended),
+  the transaction rolls back and the link stays usable. Used, expired, or unknown tokens get 404.
+
+No sign-in is needed for the link, so it works from a phone's mail app. Members who booked
+a backup room use the dashboard instead.

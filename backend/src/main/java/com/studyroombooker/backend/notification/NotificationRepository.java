@@ -17,7 +17,7 @@ public class NotificationRepository {
     public NotificationRepository(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
     /** A claimed notification with everything needed to write the reminder. */
-    public record Due(long id, int attemptCount, boolean stillRelevant, String email, LocalDate date,
+    public record Due(long id, long memberId, long shiftId, int attemptCount, boolean stillRelevant, String email, LocalDate date,
                       Instant startsAt, Instant endsAt, String roomCode, List<String> backupRoomCodes) {}
 
     /**
@@ -49,7 +49,7 @@ public class NotificationRepository {
      */
     public Optional<Due> claim(long id, Instant now) {
         return jdbc.query("""
-            SELECT n.id, n.attempt_count, m.email, s.local_date, s.starts_at, s.ends_at, r.code,
+            SELECT n.id, n.member_id, n.shift_id, n.attempt_count, m.email, s.local_date, s.starts_at, s.ends_at, r.code,
                    (s.status = 'ASSIGNED' AND s.member_id = n.member_id AND m.active AND s.starts_at > ?) AS relevant,
                    coalesce((SELECT array_agg(br.code ORDER BY b.priority)
                              FROM study_block_backup_room b JOIN room br ON br.id = b.room_id AND br.active
@@ -60,7 +60,7 @@ public class NotificationRepository {
             JOIN room r ON r.id = s.planned_room_id
             WHERE n.id = ? AND n.status IN ('PENDING', 'FAILED') AND n.next_attempt_at <= ?
             FOR UPDATE OF n SKIP LOCKED
-            """, (row, index) -> new Due(row.getLong("id"), row.getInt("attempt_count"), row.getBoolean("relevant"),
+            """, (row, index) -> new Due(row.getLong("id"), row.getLong("member_id"), row.getLong("shift_id"), row.getInt("attempt_count"), row.getBoolean("relevant"),
                 row.getString("email"), row.getObject("local_date", LocalDate.class),
                 row.getObject("starts_at", OffsetDateTime.class).toInstant(),
                 row.getObject("ends_at", OffsetDateTime.class).toInstant(), row.getString("code"),

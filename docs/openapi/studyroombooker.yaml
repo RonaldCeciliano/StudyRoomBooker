@@ -581,6 +581,73 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
+  /api/actions/booked:
+    get:
+      operationId: previewBookedAction
+      summary: Preview an emailed "I booked it" link without using it
+      description: >-
+        Public; the token from the reminder email is the authorization. Never
+        consumes the token or changes state (email scanners may open links).
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The shift the link would mark booked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionPreview'
+        '404':
+          description: The link is invalid, expired (the shift ended), or already used.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+    post:
+      operationId: confirmBookedAction
+      summary: Use an emailed link to mark the shift booked
+      description: >-
+        Public; consumes the single-use token and marks the shift BOOKED in its
+        planned room as the token's member, with the same rules as
+        POST /api/shifts/{id}/booked. If that is rejected (for example the shift was
+        released or cancelled) nothing changes and the link stays usable.
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+      responses:
+        '204':
+          description: Marked booked.
+        '403':
+          description: Missing CSRF header, or the member no longer owns the shift.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '404':
+          description: The link is invalid, expired, or already used.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '409':
+          description: The shift ended or is MISSED or CANCELLED.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
   /api/shifts:
     get:
       operationId: listShifts
@@ -853,6 +920,26 @@ components:
           description: Rooms the member may book, planned room first, then active backups by priority.
           items:
             $ref: '#/components/schemas/RoomOption'
+    ActionPreview:
+      type: object
+      required: [shiftId, startsAt, endsAt, plannedRoomCode, memberName, status]
+      properties:
+        shiftId:
+          type: integer
+          format: int64
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        plannedRoomCode:
+          type: string
+        memberName:
+          type: string
+        status:
+          type: string
+          enum: [UNASSIGNED, ASSIGNED, BOOKED, MISSED, CANCELLED]
     Member:
       type: object
       required: [id, name]

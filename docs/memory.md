@@ -29,7 +29,6 @@ PRs #55–#61 are stacked; merge them in order so each retargets to `main`.
 - Exact time LibCal opens a date 14 days ahead (midnight vs. matching time). Reminders
   currently go out at the start of the day and say to retry later that day (ADR 0005).
 - Member invitation/management: members are still inserted directly in the database.
-- Email action links (ARCHITECTURE.md "Action Tokens") are not implemented.
 - Sessions are in memory, so a backend restart signs everyone out. Acceptable for one instance?
 
 ## Roadmap
@@ -39,7 +38,7 @@ PRs #55–#61 are stacked; merge them in order so each retargets to `main`.
    Gmail credentials and a hostname.
 3. Create the Oracle Object Storage bucket and the rclone sync for backups (#48 follow-up).
 4. Ops tickets (#49–#51), then a real Gmail delivery test.
-5. Action-token email links; alerts for shifts about to be missed.
+5. Alerts for shifts about to be missed; member invitation UI.
 
 ## Decision log
 

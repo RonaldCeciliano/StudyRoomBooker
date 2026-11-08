@@ -268,6 +268,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/actions/booked": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview an emailed "I booked it" link without using it
+         * @description Public; the token from the reminder email is the authorization. Never consumes the token or changes state (email scanners may open links).
+         */
+        get: operations["previewBookedAction"];
+        put?: never;
+        /**
+         * Use an emailed link to mark the shift booked
+         * @description Public; consumes the single-use token and marks the shift BOOKED in its planned room as the token's member, with the same rules as POST /api/shifts/{id}/booked. If that is rejected (for example the shift was released or cancelled) nothing changes and the link stays usable.
+         */
+        post: operations["confirmBookedAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/shifts": {
         parameters: {
             query?: never;
@@ -395,6 +419,18 @@ export interface components {
             libcalCancelRequired: boolean;
             /** @description Rooms the member may book, planned room first, then active backups by priority. */
             bookingRooms: components["schemas"]["RoomOption"][];
+        };
+        ActionPreview: {
+            /** Format: int64 */
+            shiftId: number;
+            /** Format: date-time */
+            startsAt: string;
+            /** Format: date-time */
+            endsAt: string;
+            plannedRoomCode: string;
+            memberName: string;
+            /** @enum {string} */
+            status: "UNASSIGNED" | "ASSIGNED" | "BOOKED" | "MISSED" | "CANCELLED";
         };
         Member: {
             /** Format: int64 */
@@ -1120,6 +1156,91 @@ export interface operations {
             };
             /** @description Unsuccessful response, including 401 without a session and 403 without CSRF. */
             default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    previewBookedAction: {
+        parameters: {
+            query: {
+                token: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The shift the link would mark booked. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionPreview"];
+                };
+            };
+            /** @description The link is invalid, expired (the shift ended), or already used. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    confirmBookedAction: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Value of the XSRF-TOKEN cookie (set by GET /api/session). */
+                "X-XSRF-TOKEN": components["parameters"]["CsrfHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    token: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Marked booked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing CSRF header, or the member no longer owns the shift. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The link is invalid, expired, or already used. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The shift ended or is MISSED or CANCELLED. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
