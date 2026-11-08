@@ -47,6 +47,7 @@ Backend business logic belongs in services, using controller, service, and repos
 
 - [Architecture & Implementation Plan](ARCHITECTURE.md) — source of truth for scope, design, milestones, and responsibilities.
 - [Architecture Decision Records](docs/adr/) — the ten decisions documented in the plan.
+- [Production deployment](docs/deployment.md) — Compose, Caddy, environment, and operations.
 
 ## Collaboration workflow
 

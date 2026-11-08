@@ -25,9 +25,9 @@ public class SmtpEmailSender implements EmailSender {
 			@Value("${app.email.from:}") String from) {
 		requireConfigured(username, "spring.mail.username (SMTP_USERNAME)");
 		requireConfigured(password, "spring.mail.password (SMTP_PASSWORD)");
-		requireConfigured(from, "app.email.from (EMAIL_FROM)");
 		this.mailSender = mailSender;
-		this.from = from;
+		// An empty EMAIL_FROM (as Compose passes when unset) falls back to the sign-in address.
+		this.from = from == null || from.isBlank() ? username : from;
 	}
 
 	/** Fails startup instead of discovering missing credentials on the first send. */
