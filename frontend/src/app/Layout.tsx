@@ -25,6 +25,11 @@ export function Layout() {
             </NavLink>
           )}
           {signedIn && (
+            <NavLink to="/availability" className="nav-pill">
+              Availability
+            </NavLink>
+          )}
+          {signedIn && (
             <button
               type="button"
               className="nav-pill nav-button"

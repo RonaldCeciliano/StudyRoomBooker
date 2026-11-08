@@ -185,6 +185,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/unavailability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the signed-in member's unavailability */
+        get: operations["listMyUnavailability"];
+        put?: never;
+        /**
+         * Add one-time or weekly unavailability for the signed-in member
+         * @description Times are America/Chicago wall-clock HH:MM; endTime may be 24:00 for end of day. ONE_TIME needs a date today or later. WEEKLY needs weekday (1 = Monday through 7 = Sunday); validFrom defaults to today and validUntil is optional and inclusive. Future assignment honors the entry; shifts already assigned are not changed (release them from the dashboard).
+         */
+        post: operations["addMyUnavailability"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/unavailability/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove one of the signed-in member's entries */
+        delete: operations["removeMyUnavailability"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/shifts": {
         parameters: {
             query?: never;
@@ -209,6 +247,48 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @enum {string} */
+        UnavailabilityKind: "ONE_TIME" | "WEEKLY";
+        CreateUnavailability: {
+            kind: components["schemas"]["UnavailabilityKind"];
+            /**
+             * Format: date
+             * @description Required for ONE_TIME; omit for WEEKLY.
+             */
+            date?: string | null;
+            /** @description Required for WEEKLY (1 = Monday); omit for ONE_TIME. */
+            weekday?: number | null;
+            /**
+             * Format: date
+             * @description WEEKLY only; defaults to today.
+             */
+            validFrom?: string | null;
+            /**
+             * Format: date
+             * @description WEEKLY only; inclusive, optional.
+             */
+            validUntil?: string | null;
+            /** @example 09:00 */
+            startTime: string;
+            /** @example 24:00 */
+            endTime: string;
+        };
+        Unavailability: {
+            /** Format: int64 */
+            id: number;
+            kind: components["schemas"]["UnavailabilityKind"];
+            /** Format: date */
+            date: string | null;
+            weekday: number | null;
+            /** Format: date */
+            validFrom: string | null;
+            /** Format: date */
+            validUntil: string | null;
+            /** @example 09:00 */
+            startTime: string;
+            /** @example 24:00 */
+            endTime: string;
+        };
         Session: {
             authenticated: boolean;
             /** @description The signed-in member's primary email; null when signed out. */
@@ -715,6 +795,121 @@ export interface operations {
                 };
             };
             /** @description Unsuccessful response, including 401 without a member session. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    listMyUnavailability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One-time entries first, then weekly; an empty array when none. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Unavailability"][];
+                };
+            };
+            /** @description Unsuccessful response, including 401 without a member session. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    addMyUnavailability: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Value of the XSRF-TOKEN cookie (set by GET /api/session). */
+                "X-XSRF-TOKEN": components["parameters"]["CsrfHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateUnavailability"];
+            };
+        };
+        responses: {
+            /** @description Created entry. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Unavailability"];
+                };
+            };
+            /** @description Invalid kind, dates, weekday, or times. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unsuccessful response, including 401 without a session and 403 without CSRF. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    removeMyUnavailability: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Value of the XSRF-TOKEN cookie (set by GET /api/session). */
+                "X-XSRF-TOKEN": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such entry for this member (including other members' entries). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unsuccessful response, including 401 without a session and 403 without CSRF. */
             default: {
                 headers: {
                     [name: string]: unknown;

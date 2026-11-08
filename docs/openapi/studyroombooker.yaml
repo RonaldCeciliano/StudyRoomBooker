@@ -368,6 +368,94 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
+  /api/me/unavailability:
+    get:
+      operationId: listMyUnavailability
+      summary: List the signed-in member's unavailability
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: One-time entries first, then weekly; an empty array when none.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Unavailability'
+        default:
+          description: Unsuccessful response, including 401 without a member session.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+    post:
+      operationId: addMyUnavailability
+      summary: Add one-time or weekly unavailability for the signed-in member
+      description: >-
+        Times are America/Chicago wall-clock HH:MM; endTime may be 24:00 for end of
+        day. ONE_TIME needs a date today or later. WEEKLY needs weekday (1 = Monday
+        through 7 = Sunday); validFrom defaults to today and validUntil is optional
+        and inclusive. Future assignment honors the entry; shifts already assigned
+        are not changed (release them from the dashboard).
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUnavailability'
+      responses:
+        '201':
+          description: Created entry.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unavailability'
+        '400':
+          description: Invalid kind, dates, weekday, or times.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        default:
+          description: Unsuccessful response, including 401 without a session and 403 without CSRF.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+  /api/me/unavailability/{id}:
+    delete:
+      operationId: removeMyUnavailability
+      summary: Remove one of the signed-in member's entries
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '204':
+          description: Removed.
+        '404':
+          description: No such entry for this member (including other members' entries).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        default:
+          description: Unsuccessful response, including 401 without a session and 403 without CSRF.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
   /api/shifts:
     get:
       operationId: listShifts
@@ -463,6 +551,74 @@ components:
       name: JSESSIONID
       description: Session cookie set by POST /login/ott after a magic-link sign-in.
   schemas:
+    UnavailabilityKind:
+      type: string
+      enum: [ONE_TIME, WEEKLY]
+    CreateUnavailability:
+      type: object
+      required: [kind, startTime, endTime]
+      properties:
+        kind:
+          $ref: '#/components/schemas/UnavailabilityKind'
+        date:
+          type: string
+          format: date
+          nullable: true
+          description: Required for ONE_TIME; omit for WEEKLY.
+        weekday:
+          type: integer
+          minimum: 1
+          maximum: 7
+          nullable: true
+          description: Required for WEEKLY (1 = Monday); omit for ONE_TIME.
+        validFrom:
+          type: string
+          format: date
+          nullable: true
+          description: WEEKLY only; defaults to today.
+        validUntil:
+          type: string
+          format: date
+          nullable: true
+          description: WEEKLY only; inclusive, optional.
+        startTime:
+          type: string
+          pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+          example: '09:00'
+        endTime:
+          type: string
+          pattern: '^(([01][0-9]|2[0-3]):[0-5][0-9]|24:00)$'
+          example: '24:00'
+    Unavailability:
+      type: object
+      required: [id, kind, date, weekday, validFrom, validUntil, startTime, endTime]
+      properties:
+        id:
+          type: integer
+          format: int64
+        kind:
+          $ref: '#/components/schemas/UnavailabilityKind'
+        date:
+          type: string
+          format: date
+          nullable: true
+        weekday:
+          type: integer
+          nullable: true
+        validFrom:
+          type: string
+          format: date
+          nullable: true
+        validUntil:
+          type: string
+          format: date
+          nullable: true
+        startTime:
+          type: string
+          example: '09:00'
+        endTime:
+          type: string
+          example: '24:00'
     Session:
       type: object
       required: [authenticated, email, name]

@@ -346,3 +346,21 @@ Migration `V3` makes the (block, start) uniqueness ignore CANCELLED shifts, so a
 booked shift does not block regenerating a shift at the same start. `GET /api/shifts`
 exposes `libcalCancelRequired` so the dashboard tells the member to cancel on LibCal.
 Deleting study blocks is not implemented.
+
+## Member unavailability
+
+Members manage only their own entries; identity comes from the session principal and
+there is no member ID in the path.
+
+- `GET /api/me/unavailability` lists entries (one-time first, then weekly).
+- `POST /api/me/unavailability` adds `{"kind":"ONE_TIME","date":"2026-11-10","startTime":"09:00","endTime":"12:30"}`
+  or `{"kind":"WEEKLY","weekday":2,"startTime":"18:00","endTime":"24:00","validUntil":"2026-12-15"}`
+  and returns 201. Times are America/Chicago `HH:MM`; `endTime` may be `24:00`.
+  One-time dates must be today or later. Weekly `weekday` is 1 (Monday) to 7 (Sunday);
+  `validFrom` defaults to today and `validUntil` is optional and inclusive.
+- `DELETE /api/me/unavailability/{id}` returns 204, or 404 for missing entries and
+  other members' entries.
+
+Writes take the shared assignment advisory lock, as required for assignment inputs.
+Entries affect future assignment only: shifts already assigned are not changed, and the
+member can release them from the dashboard.
