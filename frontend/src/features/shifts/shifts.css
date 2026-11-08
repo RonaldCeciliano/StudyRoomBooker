@@ -33,3 +33,50 @@
   background: var(--status-cancelled-bg);
   color: var(--status-cancelled-fg);
 }
+
+.shift-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.button-secondary {
+  background: var(--glass-selected);
+  color: var(--label);
+}
+
+.button-secondary:hover {
+  background: var(--glass-hover);
+}
+
+.button-destructive {
+  background: var(--status-missed-fg);
+  color: #ffffff;
+}
+
+.room-select select {
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-capsule);
+  background: var(--surface);
+  color: var(--label);
+  font: inherit;
+}
+
+.shift-action-error {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--status-missed-fg);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

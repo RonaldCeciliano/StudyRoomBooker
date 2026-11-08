@@ -22,7 +22,10 @@ a request example and current planning limitations.
 `studyroombooker.yaml` is the authoritative contract for Issue #7 and ADR 0006.
 The backend implements `GET /api/shifts` against PostgreSQL. There are no query parameters, pagination, filtering, or envelope.
 Successful responses are `200 application/json` arrays, including `[]`.
-All six Shift properties are required; only `memberName` is nullable.
+All Shift properties are required; `memberName` and `bookedRoomCode` are nullable.
+`assignedToMe` reflects the signed-in member, and `bookingRooms` lists the planned room
+then active backups. `POST /api/shifts/{id}/booked` records the owner's LibCal
+confirmation (group tracking only, never proof of a reservation).
 Timestamps are UTC ISO-8601 instants ending in `Z` (optional fractional seconds),
 while the dashboard displays America/Chicago. IDs are integers; no new numeric
 bounds or database ID strategy are imposed by this foundation task.

@@ -1,5 +1,6 @@
 import { formatLibraryDate, formatLibraryTimeRange } from '../../lib/time'
 import { type Shift, useShifts } from '../shifts/api'
+import { ShiftActions } from '../shifts/ShiftActions'
 import { ShiftStatusBadge } from '../shifts/ShiftStatusBadge'
 import './dashboard.css'
 
@@ -52,13 +53,17 @@ function ShiftRow({ shift }: { shift: Shift }) {
       <div>
         <p className="shift-date">{formatLibraryDate(shift.startsAt)}</p>
         <p className="secondary-text">
-          {formatLibraryTimeRange(shift.startsAt, shift.endsAt)} · Room {shift.plannedRoomCode}
+          {formatLibraryTimeRange(shift.startsAt, shift.endsAt)} · Room {shift.bookedRoomCode ?? shift.plannedRoomCode}
         </p>
       </div>
       <div className="shift-meta">
-        <span className="secondary-text">{shift.memberName ?? 'No one assigned'}</span>
+        <span className="secondary-text">
+          {shift.memberName ?? 'No one assigned'}
+          {shift.assignedToMe && ' (you)'}
+        </span>
         <ShiftStatusBadge status={shift.status} />
       </div>
+      <ShiftActions shift={shift} />
     </li>
   )
 }

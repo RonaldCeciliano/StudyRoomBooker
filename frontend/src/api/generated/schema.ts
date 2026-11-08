@@ -81,6 +81,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/shifts/{id}/booked": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm the current member booked their shift on LibCal
+         * @description Group tracking only: records the member's confirmation, sets status BOOKED, the booked room, and booked_at. Nothing verifies or contacts LibCal. Only the assigned owner of an ASSIGNED or BOOKED shift that has not ended may call it. bookedRoomId must be one of the shift's bookingRooms (planned room or an active backup); when omitted the current booked room is kept, defaulting to the planned room. Repeating on a BOOKED shift corrects the room and keeps the original booked_at. BOOKED shifts cannot be released.
+         */
+        post: operations["markShiftBooked"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/shifts/{id}/release": {
         parameters: {
             query?: never;
@@ -198,6 +218,25 @@ export interface components {
             status: "UNASSIGNED" | "ASSIGNED" | "BOOKED" | "MISSED" | "CANCELLED";
             plannedRoomCode: string;
             memberName: string | null;
+            /** @description Room the member reported booking; null unless the shift has been marked BOOKED. */
+            bookedRoomCode: string | null;
+            /** @description True when the signed-in member is the assigned member. */
+            assignedToMe: boolean;
+            /** @description Rooms the member may book, planned room first, then active backups by priority. */
+            bookingRooms: components["schemas"]["RoomOption"][];
+        };
+        RoomOption: {
+            /** Format: int64 */
+            id: number;
+            code: string;
+            name: string;
+        };
+        MarkBooked: {
+            /**
+             * Format: int64
+             * @description One of the shift's bookingRooms ids. Omit to keep the current or planned room.
+             */
+            bookedRoomId?: number;
         };
         /** @description Standard ProblemDetail fields. All fields remain optional to preserve the existing client contract; no custom extensions are defined. */
         ProblemDetail: {
@@ -336,6 +375,78 @@ export interface operations {
                 content?: never;
             };
             403: components["responses"]["CsrfRejected"];
+        };
+    };
+    markShiftBooked: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Value of the XSRF-TOKEN cookie (set by GET /api/session). */
+                "X-XSRF-TOKEN": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["MarkBooked"];
+            };
+        };
+        responses: {
+            /** @description Marked booked; no response body. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description bookedRoomId is not one of the shift's booking rooms, or the JSON is invalid. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No member session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Not the shift's assigned member, or missing CSRF header. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Shift does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Shift has ended or is MISSED or CANCELLED. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
         };
     };
     releaseShift: {

@@ -16,7 +16,7 @@ public class ShiftService {
     }
 
     @Transactional(readOnly = true)
-    public List<ShiftSummary> listShifts() {
-        return shifts.findAll();
+    public List<ShiftSummary> listShifts(String viewerEmail) {
+        return shifts.findAll(viewerEmail);
     }
 }
