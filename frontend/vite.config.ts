@@ -8,6 +8,9 @@ export default defineConfig({
     // Mirror Caddy's same-origin routing: API calls go to Spring Boot.
     proxy: {
       '/api': 'http://localhost:8080',
+      '/ott/generate': 'http://localhost:8080',
+      '/login/ott': 'http://localhost:8080',
+      '/logout': 'http://localhost:8080',
     },
   },
   test: {

@@ -1,12 +1,10 @@
 package com.studyroombooker.backend;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Instant;
 import java.util.HashSet;
 
+import com.studyroombooker.backend.auth.MagicLinkTokenService;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,10 +21,13 @@ class ShiftsApiTests extends PostgresIntegrationTest {
     @Value("${local.server.port}") int port;
     @Autowired JdbcTemplate jdbc;
     @Autowired Flyway flyway;
+    @Autowired MagicLinkTokenService tokens;
 
     @Test
     void servesDatabaseFixturesMatchingContractAndDoesNotReseedOnRestart() throws Exception {
-        try (var client = HttpClient.newHttpClient()) {
+        var client = TestHttp.signedIn(port, tokens, "ronald@example.test");
+        {
+            assertThat(new TestHttp(port).get("/api/shifts").statusCode()).isEqualTo(401);
             var response = get(client);
             assertThat(response.statusCode()).isEqualTo(200);
             assertThat(response.headers().firstValue("Content-Type").orElse("")).contains("application/json");
@@ -76,8 +77,7 @@ class ShiftsApiTests extends PostgresIntegrationTest {
         }
     }
 
-    private HttpResponse<String> get(HttpClient client) throws Exception {
-        return client.send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/shifts"))
-            .GET().build(), HttpResponse.BodyHandlers.ofString());
+    private HttpResponse<String> get(TestHttp client) throws Exception {
+        return client.get("/api/shifts");
     }
 }

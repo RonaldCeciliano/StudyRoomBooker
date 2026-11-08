@@ -1,0 +1,47 @@
+.auth-card {
+  max-width: 480px;
+}
+
+.auth-form {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+}
+
+.field-label {
+  font-weight: 600;
+}
+
+.text-field {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--separator);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--label);
+  font: inherit;
+}
+
+.text-field:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.error-text {
+  margin: 0;
+  color: var(--status-missed-fg);
+}
+
+.button-plain {
+  margin-top: var(--space-3);
+  padding: 0;
+  min-height: 44px;
+  background: none;
+  color: var(--accent);
+}
+
+.button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}

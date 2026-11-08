@@ -2,19 +2,118 @@ openapi: 3.0.3
 info:
   title: StudyRoomBooker API
   version: 0.1.0
-  description: Authoritative contract for the database-backed shifts endpoint.
+  description: >-
+    Authoritative contract for the StudyRoomBooker API. Every /api route except
+    GET /api/session requires a member session (401 otherwise). Every POST, PUT,
+    and DELETE must echo the XSRF-TOKEN cookie in the X-XSRF-TOKEN header (403 otherwise).
 servers:
   - url: /
     description: Same-origin API
 paths:
+  /api/session:
+    get:
+      operationId: getSession
+      summary: Current session and CSRF cookie
+      description: >-
+        Public. Reports whether the caller is signed in and sets the XSRF-TOKEN
+        cookie that writes must echo in the X-XSRF-TOKEN header. Call it on app
+        start before any POST.
+      responses:
+        '200':
+          description: Session state. Signed-out callers get authenticated false and null fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+              examples:
+                signedIn:
+                  value:
+                    authenticated: true
+                    email: genaro@example.test
+                    name: Genaro (Demo)
+                signedOut:
+                  value:
+                    authenticated: false
+                    email: null
+                    name: null
+  /ott/generate:
+    post:
+      operationId: requestMagicLink
+      summary: Email a one-time sign-in link
+      description: >-
+        Always returns 204 with no body, whether or not the email belongs to an
+        active member, so responses never confirm membership. Active members get
+        an email (at most one per minute) with a link to the /login/magic page,
+        valid once for 15 minutes. Opening the link never signs in.
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [username]
+              properties:
+                username:
+                  type: string
+                  description: Member email address (case-insensitive).
+      responses:
+        '204':
+          description: Request accepted. No body; membership is not disclosed.
+        '403':
+          $ref: '#/components/responses/CsrfRejected'
+  /login/ott:
+    post:
+      operationId: signInWithMagicLink
+      summary: Consume a magic-link token and start a session
+      description: >-
+        Called when the member presses Continue on the confirmation page; GET
+        requests never consume tokens. Tokens are single use and expire after 15
+        minutes. Success sets an HttpOnly, SameSite=Lax session cookie (Secure in
+        production) and rotates the XSRF-TOKEN cookie; read it again before the next write.
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+                  description: The token query parameter from the emailed link.
+      responses:
+        '204':
+          description: Signed in. No body.
+        '401':
+          description: Token is invalid, expired, already used, or belongs to an inactive member.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          $ref: '#/components/responses/CsrfRejected'
+  /logout:
+    post:
+      operationId: signOut
+      summary: End the current session
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '204':
+          description: Signed out (also when no session existed). No body.
+        '403':
+          $ref: '#/components/responses/CsrfRejected'
   /api/shifts/{id}/release:
     post:
       operationId: releaseShift
       summary: Release the current member's future unbooked assignment
       description: >-
-        Requires a trusted authenticated server principal whose name is the active
-        member's email. The current application has no sign-in flow yet, so normal
-        unauthenticated requests return 401. Client-provided member IDs, email
+        Requires a magic-link session whose principal is the active member's
+        email; requests without one return 401. Client-provided member IDs, email
         headers, and request bodies never establish identity. Only the owner of a
         future ASSIGNED shift may release it; BOOKED shifts are not released and
         no LibCal cancellation is performed. Release and immediate reassignment
@@ -87,6 +186,8 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateStudyBlock'
+      security:
+        - sessionCookie: []
       responses:
         '201':
           description: Block persisted with evenly split shifts of at most four hours and eligible members assigned.
@@ -111,6 +212,8 @@ paths:
       operationId: listShifts
       summary: List shifts
       description: Returns a bare array. No query parameters, filtering, pagination, or envelope are defined.
+      security:
+        - sessionCookie: []
       responses:
         '200':
           description: Shifts returned successfully. Empty results are an empty array.
@@ -154,19 +257,48 @@ paths:
                 status: 500
                 detail: Database unavailable
         default:
-          description: Other unsuccessful responses use ProblemDetail. Authentication behavior is outside this contract's initial scope.
+          description: Other unsuccessful responses use ProblemDetail, including 401 without a member session.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 components:
+  parameters:
+    CsrfHeader:
+      name: X-XSRF-TOKEN
+      in: header
+      required: true
+      description: Value of the XSRF-TOKEN cookie (set by GET /api/session).
+      schema:
+        type: string
+  responses:
+    CsrfRejected:
+      description: Missing or mismatched X-XSRF-TOKEN header.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
   securitySchemes:
     sessionCookie:
       type: apiKey
       in: cookie
       name: JSESSIONID
-      description: Planned authenticated session. Sign-in/session security is not implemented yet.
+      description: Session cookie set by POST /login/ott after a magic-link sign-in.
   schemas:
+    Session:
+      type: object
+      required: [authenticated, email, name]
+      properties:
+        authenticated:
+          type: boolean
+        email:
+          type: string
+          nullable: true
+          description: The signed-in member's primary email; null when signed out.
+        name:
+          type: string
+          nullable: true
+          description: The signed-in member's display name; null when signed out.
     CreateStudyBlock:
       type: object
       required: [date, startTime, endTime, preferredRoomId]

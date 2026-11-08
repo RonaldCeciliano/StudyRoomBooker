@@ -70,3 +70,21 @@ Automated checks: 45 backend tests, 12 frontend tests, build/lint, OpenAPI valid
 and generated-type freshness pass. Release tests include immediate-only exclusion,
 weekly fairness, untouched unrelated shifts and booking data, rollback after failed
 reassignment, and simultaneous duplicate releases preserving the replacement owner.
+
+## Magic-link sign-in — November 7, 2026
+
+Verified with Spring Boot (`dev`) against a throwaway PostgreSQL 17 container, using curl
+with a cookie jar (no browser automation):
+
+- `GET /api/session` returned `authenticated: false` and set `XSRF-TOKEN`.
+- Anonymous `GET /api/shifts` returned 401; `POST /ott/generate` without the CSRF header
+  returned 403.
+- `POST /ott/generate` returned 204 for both a dev member and an unknown email; only the
+  member's link appeared in the `LoggingEmailSender` log.
+- `GET /login/ott?token=…` did not sign in. `POST /login/ott` returned 204, after which
+  `/api/session` showed the member and `GET /api/shifts` returned 200.
+- Reusing the token returned 401 ProblemDetail; `POST /logout` returned 204 and
+  `GET /api/shifts` returned 401 again.
+
+The React sign-in, Continue, and sign-out screens are covered by MSW tests; they were
+not exercised in a real browser for this change.

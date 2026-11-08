@@ -40,14 +40,15 @@ class OpenApiDocumentationTests extends PostgresIntegrationTest {
 
 	@Test
 	void releaseCannotTrustCallerSuppliedIdentityHeadersOrBody() throws Exception {
-		try (var client = HttpClient.newHttpClient()) {
-			var response = client.send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/shifts/1/release?memberId=1"))
-				.header("X-Test-Email", "owner@example.test")
-				.header("X-Member-Id", "1")
-				.header("Content-Type", "application/json")
-				.POST(HttpRequest.BodyPublishers.ofString("{\"memberId\":1}")).build(), HttpResponse.BodyHandlers.ofString());
-			assertThat(response.statusCode()).isEqualTo(401);
-			assertThat(response.headers().firstValue("Content-Type").orElse("")).contains("application/problem+json");
-		}
+		// A valid CSRF token but no session: forged identity headers/body must not authenticate.
+		var http = new TestHttp(port);
+		var response = http.send(http.request("/api/shifts/1/release?memberId=1")
+			.header("X-Test-Email", "owner@example.test")
+			.header("X-Member-Id", "1")
+			.header("X-XSRF-TOKEN", http.csrf())
+			.header("Content-Type", "application/json")
+			.POST(HttpRequest.BodyPublishers.ofString("{\"memberId\":1}")));
+		assertThat(response.statusCode()).isEqualTo(401);
+		assertThat(response.headers().firstValue("Content-Type").orElse("")).contains("application/problem+json");
 	}
 }

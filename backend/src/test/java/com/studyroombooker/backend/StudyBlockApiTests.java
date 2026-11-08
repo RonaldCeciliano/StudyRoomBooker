@@ -1,14 +1,12 @@
 package com.studyroombooker.backend;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 
 import com.studyroombooker.backend.service.StudyBlockService;
+import com.studyroombooker.backend.auth.MagicLinkTokenService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,6 +33,8 @@ class StudyBlockApiTests extends PostgresIntegrationTest {
 
     @Autowired JdbcTemplate jdbc;
     @Autowired StudyBlockService blocks;
+    @Autowired MagicLinkTokenService tokens;
+    TestHttp planner;
     @Value("${local.server.port}") int port;
     long room;
     long backup;
@@ -45,6 +45,7 @@ class StudyBlockApiTests extends PostgresIntegrationTest {
         room = jdbc.queryForObject("INSERT INTO room(code, name) VALUES ('A', 'Test A') RETURNING id", Long.class);
         backup = jdbc.queryForObject("INSERT INTO room(code, name) VALUES ('B', 'Test B') RETURNING id", Long.class);
         jdbc.update("INSERT INTO library_hours SELECT day, time '00:00', time '24:00' FROM generate_series(1, 7) AS day");
+        planner = null;
     }
 
     @Test
@@ -65,8 +66,8 @@ class StudyBlockApiTests extends PostgresIntegrationTest {
         blocks.generateShifts(id);
         assertThat(jdbc.queryForList("SELECT id FROM shift ORDER BY starts_at", Long.class)).isEqualTo(ids);
         assertThat(jdbc.queryForObject("SELECT status FROM shift WHERE id = ?", String.class, ids.getFirst())).isEqualTo("ASSIGNED");
-        try (var client = HttpClient.newHttpClient()) {
-            var shifts = client.send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/shifts")).GET().build(), HttpResponse.BodyHandlers.ofString());
+        {
+            var shifts = planner().get("/api/shifts");
             var data = JsonMapper.builder().build().readTree(shifts.body());
             assertThat(data.size()).isEqualTo(3);
             assertThat(data.get(1).get("status").asString()).isEqualTo("UNASSIGNED");
@@ -122,9 +123,8 @@ class StudyBlockApiTests extends PostgresIntegrationTest {
         jdbc.update("INSERT INTO member(name, email) VALUES ('First', 'first@example.test'), ('Second', 'second@example.test')");
         var response = post(body("2026-11-10", "12:00", "21:00", room, "[]"));
         assertThat(response.statusCode()).isEqualTo(201);
-        try (var client = HttpClient.newHttpClient()) {
-            var shifts = client.send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/shifts"))
-                .GET().build(), HttpResponse.BodyHandlers.ofString());
+        {
+            var shifts = planner().get("/api/shifts");
             var data = JsonMapper.builder().build().readTree(shifts.body());
             assertThat(data.size()).isEqualTo(3);
             assertThat(data.get(0).get("memberName").asString()).isEqualTo("First");
@@ -162,9 +162,22 @@ class StudyBlockApiTests extends PostgresIntegrationTest {
     }
 
     private HttpResponse<String> post(String body) throws Exception {
-        try (var client = HttpClient.newHttpClient()) {
-            return client.send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/study-blocks"))
-                .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(body)).build(), HttpResponse.BodyHandlers.ofString());
+        return planner().postJson("/api/study-blocks", body);
+    }
+
+    /**
+     * A signed-in member who is unavailable all week, so the planner never takes a shift
+     * and assignment expectations involve only each test's own members.
+     */
+    private TestHttp planner() throws Exception {
+        if (planner == null) {
+            long id = jdbc.queryForObject("INSERT INTO member(name, email) VALUES ('Planner', 'planner@example.test') RETURNING id", Long.class);
+            jdbc.update("""
+                INSERT INTO member_unavailability(member_id, kind, weekday, valid_from, start_time, end_time)
+                SELECT ?, 'WEEKLY', day, date '2026-01-01', time '00:00', time '24:00' FROM generate_series(1, 7) AS day
+                """, id);
+            planner = TestHttp.signedIn(port, tokens, "planner@example.test");
         }
+        return planner;
     }
 }
