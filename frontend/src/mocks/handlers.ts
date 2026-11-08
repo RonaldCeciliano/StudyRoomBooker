@@ -108,6 +108,12 @@ export const handlers = [
     unavailability.splice(index, 1)
     return new HttpResponse(null, { status: 204 })
   }),
+  http.delete('/api/study-blocks/:id', ({ params }) => {
+    const index = studyBlocks.findIndex((b) => b.id === Number(params.id))
+    if (index < 0) return problem(404, 'Not Found', 'One-time study block not found')
+    studyBlocks.splice(index, 1)
+    return new HttpResponse(null, { status: 204 })
+  }),
   http.post('/api/shifts/:id/release', ({ params }) => {
     const shift = shifts.find((s) => s.id === Number(params.id))
     if (!shift) return problem(404, 'Not Found', 'Shift not found')

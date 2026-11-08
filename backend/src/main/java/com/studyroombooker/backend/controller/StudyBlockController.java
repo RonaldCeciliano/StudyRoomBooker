@@ -3,11 +3,13 @@ package com.studyroombooker.backend.controller;
 import java.util.List;
 
 import com.studyroombooker.backend.repository.StudyBlockRepository.BlockView;
+import com.studyroombooker.backend.repository.StudyBlockRepository.Member;
 import com.studyroombooker.backend.repository.StudyBlockRepository.Room;
 import com.studyroombooker.backend.service.StudyBlockService;
 import com.studyroombooker.backend.service.StudyBlockService.CreateRequest;
 import com.studyroombooker.backend.service.StudyBlockService.CreatedBlock;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,6 +38,23 @@ public class StudyBlockController {
     @PutMapping("/api/study-blocks/{id}")
     public CreatedBlock update(@PathVariable long id, @RequestBody CreateRequest request) {
         return blocks.update(id, request);
+    }
+
+    @GetMapping("/api/study-blocks/{id}")
+    public CreatedBlock get(@PathVariable long id) {
+        return view(blocks.find(id));
+    }
+
+    @DeleteMapping("/api/study-blocks/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable long id) {
+        blocks.delete(id);
+    }
+
+    /** Active members' display names; emails are not exposed to other members. */
+    @GetMapping("/api/members")
+    public List<Member> members() {
+        return blocks.members();
     }
 
     @GetMapping("/api/rooms")

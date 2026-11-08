@@ -150,4 +150,65 @@ class StudyBlockEditApiTests extends PostgresIntegrationTest {
             {"date":"%s","startTime":"%s","endTime":"%s","preferredRoomId":%d,"backupRoomIds":%s}
             """.formatted(date, start, end, preferred, backups);
     }
+
+    @Test
+    void getsOneBlockAndOneShift() throws Exception {
+        var one = json(http.get("/api/study-blocks/" + block));
+        assertThat(one.get("id").asLong()).isEqualTo(block);
+        assertThat(one.get("endTime").asString()).isEqualTo("18:00:00");
+        assertThat(http.get("/api/study-blocks/999").statusCode()).isEqualTo(404);
+
+        long shiftId = (Long) shifts().get(0).get("id");
+        var shift = json(http.get("/api/shifts/" + shiftId));
+        assertThat(shift.get("id").asLong()).isEqualTo(shiftId);
+        assertThat(shift.get("plannedRoomCode").asString()).isEqualTo("A");
+        assertThat(shift.has("assignedToMe")).isTrue();
+        assertThat(http.get("/api/shifts/999").statusCode()).isEqualTo(404);
+        assertThat(new TestHttp(port).get("/api/shifts/" + shiftId).statusCode()).isEqualTo(401);
+    }
+
+    @Test
+    void listsActiveMemberNamesWithoutEmails() throws Exception {
+        jdbc.update("INSERT INTO member(name, email, active) VALUES ('Gone', 'gone@example.test', false)");
+        var members = json(http.get("/api/members"));
+        assertThat(members.size()).isEqualTo(2);
+        assertThat(members.get(0).get("name").asString()).isEqualTo("One");
+        assertThat(members.get(0).has("email")).isFalse();
+    }
+
+    @Test
+    void deletingAnUnbookedBlockRemovesItAndItsShifts() throws Exception {
+        assertThat(delete(block).statusCode()).isEqualTo(204);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM study_block", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM shift", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM study_block_backup_room", Integer.class)).isZero();
+        assertThat(delete(block).statusCode()).isEqualTo(404);
+    }
+
+    @Test
+    void deletingABlockWithABookingCancelsItForLibcalAndHidesTheBlock() throws Exception {
+        long bookedId = (Long) shifts().get(0).get("id");
+        jdbc.update("UPDATE shift SET status = 'BOOKED', booked_room_id = 1, booked_at = now() WHERE id = ?", bookedId);
+
+        assertThat(delete(block).statusCode()).isEqualTo(204);
+        var remaining = shifts();
+        assertThat(remaining).hasSize(1);
+        assertThat(remaining.get(0).get("status")).isEqualTo("CANCELLED");
+        assertThat(jdbc.queryForObject("SELECT libcal_cancel_required FROM shift WHERE id = ?", Boolean.class, bookedId)).isTrue();
+        assertThat(jdbc.queryForObject("SELECT cancelled_at IS NOT NULL FROM study_block WHERE id = ?", Boolean.class, block)).isTrue();
+        assertThat(json(http.get("/api/study-blocks")).size()).isZero();
+        assertThat(http.get("/api/study-blocks/" + block).statusCode()).isEqualTo(404);
+        assertThat(put(block, body("2026-11-10", "12:00", "15:00", 1, "[]")).statusCode()).isEqualTo(404);
+    }
+
+    @Test
+    void startedBlocksCannotBeDeleted() throws Exception {
+        jdbc.update("UPDATE study_block SET date = '2026-11-05', start_time = '05:00', end_time = '08:00' WHERE id = ?", block);
+        assertThat(delete(block).statusCode()).isEqualTo(409);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM study_block", Integer.class)).isEqualTo(1);
+    }
+
+    private HttpResponse<String> delete(long id) throws Exception {
+        return http.send(http.request("/api/study-blocks/" + id).header("X-XSRF-TOKEN", http.csrf()).DELETE());
+    }
 }
