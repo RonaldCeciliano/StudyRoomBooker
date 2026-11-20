@@ -24,8 +24,9 @@ repository root; `.dockerignore` keeps `node_modules`, `target`, `.git`, and `.e
 
 ## First deploy
 
-1. In the Oracle console, create an Ubuntu VM (Always Free; Ampere A1 / ARM64 is fine) and
-   add **ingress rules for TCP 80 and 443** (and UDP 443 for HTTP/3) to its VCN security list.
+1. In the Oracle console, create an Ubuntu VM. Prefer Always Free `VM.Standard.A1.Flex`
+   (ARM64, 1 OCPU / 6 GB). If A1 is out of capacity, `VM.Standard.E2.1.Micro` (1 GB) also
+   works; see [Small VM](#small-vm-vmstandarde21micro). Add **ingress rules for TCP 80 and 443** (and UDP 443 for HTTP/3) to its VCN security list.
 2. Point the hostname (#50, e.g. DuckDNS) at the VM's public IP.
 3. SSH in and run the setup script, passing the hostname:
 
@@ -46,6 +47,9 @@ repository root; `.dockerignore` keeps `node_modules`, `target`, `.git`, and `.e
    docker compose up -d --build --wait
    ```
 
+   On a 1 GB VM, start it with `infra/vm/ship-images.sh` from your computer instead
+   (next section).
+
 Without the script, the manual equivalent is: install Docker and the Compose plugin, open
 the ports, `git clone` the repository, `cp .env.example .env`, edit every value,
 `chmod 600 .env`, and run the same `docker compose` command.
@@ -59,9 +63,36 @@ the ports, `git clone` the repository, `cp .env.example .env`, edit every value,
 | `DB_USERNAME`, `DB_PASSWORD` | PostgreSQL credentials, set when the volume is first created. |
 | `SMTP_USERNAME`, `SMTP_PASSWORD` | Project Gmail address and app password (#49). |
 | `EMAIL_FROM` | Optional; defaults to `SMTP_USERNAME`. |
+| `JAVA_TOOL_OPTIONS` | Optional backend JVM flags; `setup.sh` sets a small heap on 1 GB VMs. |
 
 Compose refuses to start if a required variable is missing, and the backend refuses to
 start without SMTP credentials or `APP_BASE_URL`.
+
+## Small VM (VM.Standard.E2.1.Micro)
+
+The Always Free AMD micro shape has 1 GB of RAM. Measured locally under matching limits
+(1 GB total, a quarter CPU per container), the stack idles near 325 MB, the backend peaks
+near 215 MB under 400 requests, startup takes about 75 s, and pages answer in about 0.25 s.
+Running fits; **building does not**, since Maven and the Vite build need more memory than
+the VM has. So on this shape:
+
+- `setup.sh` detects under 2 GB of RAM, adds a 2 GB swap file (`vm.swappiness=10`), and
+  adds a capped `JAVA_TOOL_OPTIONS` (`-Xmx256m`, serial GC) to `.env`.
+- Build on your computer (Docker running, a clean checkout of the commit you want) and
+  send the images over SSH:
+
+  ```sh
+  git switch main && git pull
+  infra/vm/ship-images.sh ~/.ssh/oracle-srb.key ubuntu@<public-ip>
+  ```
+
+  [`infra/vm/ship-images.sh`](../infra/vm/ship-images.sh) runs `git pull --ff-only` on the
+  server and stops unless both clones are at the same commit, builds both images for the
+  server's CPU, streams them with `docker save | gzip | ssh docker load`, and runs
+  `docker compose up -d --no-build --wait` there. The first upload is a few hundred MB.
+
+Never run `docker compose up --build` on the micro VM; use `ship-images.sh` for every
+update. The script also works for an A1 VM if you would rather not build there.
 
 ## Adding members
 
@@ -85,10 +116,15 @@ see `V1__core_planning_schema.sql`). Use the real library hours and room codes.
 
 ## Updating
 
+On a VM that builds its own images (A1):
+
 ```sh
 git pull
 docker compose up -d --build --wait
 ```
+
+On the micro VM, run `infra/vm/ship-images.sh` from your computer instead (see
+[Small VM](#small-vm-vmstandarde21micro)).
 
 Flyway applies new migrations on backend start. Sessions are held in memory, so a backend
 restart signs everyone out.
