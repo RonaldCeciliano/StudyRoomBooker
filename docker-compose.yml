@@ -29,6 +29,8 @@ services:
     logging: *logging
 
   backend:
+    # Fixed image names, so images built elsewhere (infra/vm/ship-images.sh) are used as-is.
+    image: studyroombooker-backend:latest
     build:
       context: .
       dockerfile: infra/backend/Dockerfile
@@ -45,10 +47,13 @@ services:
       SMTP_USERNAME: ${SMTP_USERNAME:?set SMTP_USERNAME in .env}
       SMTP_PASSWORD: ${SMTP_PASSWORD:?set SMTP_PASSWORD in .env}
       EMAIL_FROM: ${EMAIL_FROM:-${SMTP_USERNAME}}
+      # setup.sh sets a smaller value in .env on 1 GB VMs (VM.Standard.E2.1.Micro).
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=50 -XX:+ExitOnOutOfMemoryError}
     # The Dockerfile HEALTHCHECK polls /actuator/health; Caddy waits for it.
     logging: *logging
 
   caddy:
+    image: studyroombooker-caddy:latest
     build:
       context: .
       dockerfile: infra/caddy/Dockerfile
